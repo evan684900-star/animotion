@@ -25,15 +25,23 @@ export function runScript(code) {
     .replace(/\bexport\s+(?=(const|let|var|function)\b)/g, '')
     // const nom = ...  ->  var nom = __v["nom"] = ...  (garde la variable utilisable plus loin dans le script)
     .replace(/\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*=(?!=)/g, (m, k, n) => `var ${n} = __v[${JSON.stringify(n)}] =`);
-  const workerCode = `onmessage = (e) => {
-    const __v = {};
-    try {
-      (new Function('__v', e.data))(__v);
+  const workerCode = `
+    // Faux objets "qui avalent tout" : le code de dessin du script (document, canvas…) tourne sans rien faire
+    const trou = new Proxy(function () {}, {
+      get: (t, k) => (k === Symbol.toPrimitive ? () => 0 : k === 'then' ? undefined : trou),
+      set: () => true, apply: () => trou, construct: () => trou, has: () => true,
+    });
+    self.document = trou; self.window = trou; self.canvas = trou; self.alert = () => {};
+    self.requestAnimationFrame = () => 0; self.Image = function () { return trou; };
+    onmessage = (e) => {
+      const __v = {};
+      let warning = null;
+      try { (new Function('__v', e.data))(__v); }
+      catch (err) { warning = String((err && err.message) || err); } // on garde ce qui a été lu avant l'erreur
       const out = {};
       for (const k of Object.keys(__v)) { try { out[k] = JSON.parse(JSON.stringify(__v[k])); } catch {} }
-      postMessage({ ok: true, vars: out });
-    } catch (err) { postMessage({ ok: false, error: String((err && err.message) || err) }); }
-  };`;
+      postMessage({ ok: true, vars: out, warning });
+    };`;
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(new Blob([workerCode], { type: 'text/javascript' }));
     const w = new Worker(url);
@@ -44,7 +52,7 @@ export function runScript(code) {
       fn(v);
     };
     const timer = setTimeout(() => done(reject, new Error('le script met trop de temps (boucle infinie ?)')), 3000);
-    w.onmessage = (e) => (e.data.ok ? done(resolve, e.data.vars) : done(reject, new Error('le script contient une erreur : ' + e.data.error)));
+    w.onmessage = (e) => (e.data.ok ? done(resolve, Object.assign(e.data.vars, { __warning: e.data.warning })) : done(reject, new Error('le script contient une erreur : ' + e.data.error)));
     w.onerror = (e) => {
       e.preventDefault();
       done(reject, new Error('le script contient une erreur : ' + e.message));
@@ -90,6 +98,11 @@ const isColorish = (v) => {
 const isColorList = (v) => Array.isArray(v) && v.length > 0 && v.every((c) => typeof c === 'string' && isColorish(c));
 
 /** Cherche les sprites et palettes dans les variables du script */
+// Couleurs écrites telles quelles dans le script (ex. color = "#5fd35f") : utilisées par défaut s'il n'y a pas de palette
+export function colorsInSource(code) {
+  return [...new Set((String(code).match(/#(?:[0-9a-f]{6}|[0-9a-f]{3})\b/gi) || []).map((c) => c.toLowerCase()))];
+}
+
 export function findSprites(vars) {
   const sprites = [];
   let charMap = null, indexPal = null;
@@ -103,7 +116,7 @@ export function findSprites(vars) {
       else if (depth < 2) for (const [k, c] of entries) visit(name === 'default' ? k : `${name}.${k}`, c, depth + 1);
     }
   };
-  for (const [name, v] of Object.entries(vars)) visit(name, v);
+  for (const [name, v] of Object.entries(vars)) if (name !== '__warning') visit(name, v);
   return { sprites, charMap, indexPal };
 }
 
@@ -114,9 +127,9 @@ const symbolsOf = (sprites) => {
   return out;
 };
 
-function defaultMapping(symbols, charMap, indexPal) {
+function defaultMapping(symbols, charMap, indexPal, srcColors = []) {
   const map = new Map();
-  const pool = [app.color, ...app.palette.filter((c) => c !== app.color && c !== '#000000')];
+  const pool = [...srcColors, app.color, ...app.palette.filter((c) => c !== app.color && c !== '#000000' && !srcColors.includes(c))];
   let k = 0;
   for (const s of symbols) {
     if (charMap && Object.prototype.hasOwnProperty.call(charMap, s)) map.set(s, cssColor(charMap[s]));
@@ -168,20 +181,24 @@ export async function importSpriteScript(file = null) {
   commitFloating();
   if (!file) file = await openFile([{ name: 'Script de sprites', extensions: ['js', 'mjs', 'txt', 'json'] }]);
   if (!file) return;
-  let found;
+  let found, srcColors = [], warning = null;
   try {
     const code = new TextDecoder().decode(file.bytes);
-    found = findSprites(file.name.toLowerCase().endsWith('.json') ? { [file.name.replace(/\.json$/i, '')]: JSON.parse(code) } : await runScript(code));
+    const vars = file.name.toLowerCase().endsWith('.json') ? { [file.name.replace(/\.json$/i, '')]: JSON.parse(code) } : await runScript(code);
+    warning = vars.__warning || null;
+    srcColors = colorsInSource(code);
+    found = findSprites(vars);
   } catch (e) {
     return toast('Impossible de lire ' + file.name + ' : ' + e.message, 'error', 6000);
   }
   const { sprites, charMap, indexPal } = found;
   if (!sprites.length) {
+    if (warning) return toast('Aucun sprite trouvé, le script s’arrête sur une erreur : ' + warning, 'error', 7000);
     return toast('Aucun sprite trouvé dans ce fichier. Il faut un tableau de lignes, ex. const sprite = ["..##..", ".####."];', 'warn', 7000);
   }
 
   const symbols = symbolsOf(sprites);
-  const map = defaultMapping(symbols, charMap, indexPal);
+  const map = defaultMapping(symbols, charMap, indexPal, charMap || indexPal ? [] : srcColors);
   const selected = new Set(sprites.map((_, i) => i));
   // on peut ajouter au projet ouvert seulement si un projet est affiché (pas l'écran d'accueil)
   const canPlace = !!app.doc && document.getElementById('startScreen').classList.contains('hidden');
