@@ -1,5 +1,5 @@
 import { app, on, emit, store, refreshUI } from './state.js';
-import { resizeViewport, zoomStep, fitView, setZoom, requestRender } from './view.js';
+import { resizeViewport, zoomStep, fitView, setZoom, requestRender, screenToDoc } from './view.js';
 import * as Tl from './tools.js';
 import * as A from './actions.js';
 import { undo, redo } from './history.js';
@@ -56,7 +56,7 @@ vp.addEventListener('contextmenu', (e) => e.preventDefault());
 vp.addEventListener('pointerdown', (e) => {
   if (!app.doc) return;
   vp.setPointerCapture(e.pointerId);
-  if (e.button === 1 || spaceDown) {
+  if (e.button === 1 || spaceDown || (app.tool === 'hand' && e.button === 0)) {
     pan = { x: e.clientX, y: e.clientY, px: app.panX, py: app.panY };
     vp.style.cursor = 'grabbing';
     e.preventDefault();
@@ -80,12 +80,13 @@ vp.addEventListener('pointermove', (e) => {
   }
   const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
   for (const ev of events.length ? events : [e]) Tl.pointerMove(ev);
+  if (!spaceDown && !Tl.isDrawing()) vp.style.cursor = Tl.cursorAt(screenToDoc(e.clientX, e.clientY));
   renderStatus();
 });
 const endPointer = (e) => {
   if (pan) {
     pan = null;
-    vp.style.cursor = spaceDown ? 'grab' : '';
+    vp.style.cursor = spaceDown || app.tool === 'hand' ? 'grab' : '';
     return;
   }
   Tl.pointerUp(e);
@@ -151,7 +152,7 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.altKey) return;
   const step = e.shiftKey ? 10 : 1;
-  const tools = { b: 'pencil', e: 'eraser', g: 'bucket', i: 'picker', l: 'line', r: 'rect', o: 'ellipse', m: 'select', v: 'select' };
+  const tools = { v: 'pointer', h: 'hand', b: 'pencil', e: 'eraser', g: 'bucket', i: 'picker', l: 'line', r: 'rect', o: 'ellipse', m: 'select' };
   if (k === ' ') {
     e.preventDefault();
     if (!spaceDown) {
@@ -178,7 +179,8 @@ window.addEventListener('keydown', (e) => {
     case '.': return A.setFrame(app.frameIndex + 1);
     case 'n': return e.shiftKey ? A.duplicateFrame() : A.addFrame();
     case 'u': return A.toggleOnion();
-    case 'h': return Tl.transform(e.shiftKey ? 'flipV' : 'flipH');
+    case 'h': return e.shiftKey && Tl.transform('flipH');
+    case 'v': return e.shiftKey && Tl.transform('flipV');
     case 'f1': e.preventDefault(); return showShortcuts();
     case 'arrowleft': e.preventDefault(); if (!Tl.nudge(-step, 0)) A.setFrame(app.frameIndex - 1); return;
     case 'arrowright': e.preventDefault(); if (!Tl.nudge(step, 0)) A.setFrame(app.frameIndex + 1); return;

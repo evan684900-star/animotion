@@ -155,7 +155,7 @@ function groups(tab) {
           B('paste', 'Coller', Tl.paste, { tip: 'Ctrl+V' }), B('trash', 'Supprimer', Tl.deleteSel, { tip: 'Suppr' }),
         ] },
         { title: 'Transformer', items: [
-          B('flipH', 'Miroir H', () => Tl.transform('flipH'), { tip: 'H' }), B('flipV', 'Miroir V', () => Tl.transform('flipV'), { tip: 'Maj+H' }),
+          B('flipH', 'Miroir H', () => Tl.transform('flipH'), { tip: 'Maj+H' }), B('flipV', 'Miroir V', () => Tl.transform('flipV'), { tip: 'Maj+V' }),
           B('rotCW', 'Rotation ↻', () => Tl.transform('rotCW')), B('rotCCW', 'Rotation ↺', () => Tl.transform('rotCCW')),
         ] },
         { title: 'Pinceau', items: [N(() => stack(

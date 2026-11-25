@@ -510,7 +510,7 @@ export const getBrushes = () => store('brushes') || [];
 export async function saveBrush() {
   const r = await form('Enregistrer le pinceau', [{ name: 'name', label: 'Nom du preset', value: `${app.mode === 'pixel' ? 'Pixel' : 'Trait'} ${app.mode === 'pixel' ? app.pixelSize : app.vectorSize}px` }], 'Enregistrer');
   if (!r || !r.name.trim()) return;
-  const b = { name: r.name.trim().slice(0, 24), mode: app.mode, tool: app.tool === 'select' ? (app.mode === 'pixel' ? 'pencil' : 'brush') : app.tool, size: app.mode === 'pixel' ? app.pixelSize : app.vectorSize, color: app.color, fill: app.fillShapes };
+  const b = { name: r.name.trim().slice(0, 24), mode: app.mode, tool: ['select', 'pointer', 'hand'].includes(app.tool) ? (app.mode === 'pixel' ? 'pencil' : 'brush') : app.tool, size: app.mode === 'pixel' ? app.pixelSize : app.vectorSize, color: app.color, fill: app.fillShapes };
   store('brushes', [...getBrushes(), b]);
   refreshUI();
   toast('Pinceau enregistré ⭐', 'ok');

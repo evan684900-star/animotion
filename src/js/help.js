@@ -7,13 +7,14 @@ import { currentVersion } from './update.js';
 const SHORTCUTS = [
   ['Outils', [
     ['B', 'Crayon / Pinceau'], ['E', 'Gomme'], ['G', 'Remplissage'], ['I', 'Pipette'], ['L', 'Ligne'],
-    ['R', 'Rectangle'], ['O', 'Ellipse'], ['M ou V', 'Sélection'], ['X', 'Inverser les couleurs'], ['[ et ]', 'Taille −/+'],
+    ['V', 'Pointeur (sélection + redimensionnement)'], ['H', 'Main (déplacer la vue)'],
+    ['R', 'Rectangle'], ['O', 'Ellipse'], ['M', 'Sélection'], ['X', 'Inverser les couleurs'], ['[ et ]', 'Taille −/+'],
     ['Clic droit', 'Dessiner avec la couleur 2'],
   ]],
   ['Édition', [
     ['Ctrl+Z', 'Annuler'], ['Ctrl+Y / Ctrl+Maj+Z', 'Rétablir'], ['Ctrl+C / X / V', 'Copier / couper / coller'],
     ['Suppr', 'Supprimer la sélection'], ['Ctrl+A', 'Tout sélectionner'], ['Ctrl+D / Échap', 'Désélectionner'],
-    ['Flèches', 'Décaler la sélection (Maj : ×10)'], ['H / Maj+H', 'Miroir horizontal / vertical'],
+    ['Flèches', 'Décaler la sélection (Maj : ×10)'], ['Maj+H / Maj+V', 'Miroir horizontal / vertical'],
   ]],
   ['Animation', [
     ['Entrée', 'Lecture / pause'], [', et .', 'Frame précédente / suivante'], ['← →', 'Frame précédente / suivante (sans sélection)'],

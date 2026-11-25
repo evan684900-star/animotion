@@ -85,7 +85,7 @@ function renderPanel() {
   // Outil
   const d = TOOL_DEFS[app.tool];
   const toolBox = el('div', 'tool-opts');
-  const hasSize = !['picker', 'select', 'bucket'].includes(app.tool);
+  const hasSize = !['picker', 'select', 'pointer', 'hand', 'bucket'].includes(app.tool);
   if (hasSize) toolBox.append(el('span', 'muted', 'Taille'), sizeControl());
   if (['rect', 'ellipse'].includes(app.tool)) {
     const c = el('label', 'rcheck');
@@ -106,11 +106,15 @@ function renderPanel() {
     bucket: app.mode === 'pixel' ? 'Remplit une zone de même couleur' : 'Clique dans une forme pour la remplir',
     picker: 'Récupère une couleur du dessin',
     line: 'Maj : angles de 45°', rect: 'Maj : carré parfait', ellipse: 'Maj : cercle parfait',
+    pointer: app.mode === 'pixel'
+      ? 'Glisse pour sélectionner une zone, déplace-la, et tire les poignées blanches pour la redimensionner (Maj : garder les proportions)'
+      : 'Clique un trait (Maj : plusieurs) ou encadre-les, déplace-les, et tire les poignées blanches pour les redimensionner (Maj : proportions)',
+    hand: 'Attrape la toile pour déplacer la vue (aussi : Espace + glisser, ou clic molette)',
     select: app.mode === 'pixel'
       ? 'Glisse pour sélectionner, puis glisse la sélection pour la déplacer. Flèches : décaler d’1 px'
       : 'Clique un trait pour le sélectionner (Maj : plusieurs), déplace-le, ou tire ses points blancs pour le remodeler',
   };
-  if (app.tool === 'select' || app.tool === 'bucket') toolBox.appendChild(el('p', 'tip', escapeHtml(tips[app.tool] || '')));
+  if (['select', 'pointer', 'hand', 'bucket'].includes(app.tool)) toolBox.appendChild(el('p', 'tip', escapeHtml(tips[app.tool] || '')));
   p.appendChild(section(`Outil · ${d.label}`, toolBox));
 
 

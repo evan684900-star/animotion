@@ -16,6 +16,8 @@ import { toast } from './dialogs.js';
 import { setColor, recentColor } from './actions.js';
 
 export const TOOL_DEFS = {
+  pointer: { label: 'Pointeur', icon: 'pointer', key: 'V' },
+  hand: { label: 'Main', icon: 'hand', key: 'H' },
   pencil: { label: 'Crayon', icon: 'pencil', key: 'B' },
   brush: { label: 'Pinceau', icon: 'brush', key: 'B' },
   eraser: { label: 'Gomme', icon: 'eraser', key: 'E' },
@@ -28,14 +30,16 @@ export const TOOL_DEFS = {
 };
 export const toolsFor = (mode) =>
   mode === 'pixel'
-    ? ['pencil', 'eraser', 'bucket', 'picker', 'line', 'rect', 'ellipse', 'select']
-    : ['brush', 'eraser', 'bucket', 'picker', 'line', 'rect', 'ellipse', 'select'];
+    ? ['pointer', 'hand', 'pencil', 'eraser', 'bucket', 'picker', 'line', 'rect', 'ellipse', 'select']
+    : ['pointer', 'hand', 'brush', 'eraser', 'bucket', 'picker', 'line', 'rect', 'ellipse', 'select'];
+// outils qui manipulent la sélection
+export const isSelTool = (t = app.tool) => t === 'select' || t === 'pointer';
 
 export function setTool(t) {
   if (t === 'pencil' && app.mode === 'vector') t = 'brush';
   if (t === 'brush' && app.mode === 'pixel') t = 'pencil';
   if (app.tool === t) return;
-  if (app.mode === 'pixel' && t !== 'select') commitFloating();
+  if (app.mode === 'pixel' && !isSelTool(t)) commitFloating();
   app.tool = t;
   refreshUI();
   requestRender();
@@ -209,6 +213,10 @@ function pixelDown(p, e) {
   if (tool === 'picker') {
     pickColor(x, y, alt);
     return { move: (q) => pickColor(q.x, q.y, alt) };
+  }
+  if (tool === 'pointer') {
+    const h = handleAt(p);
+    return h ? pixelResize(h) : pixelSelectDown(x, y);
   }
   if (tool === 'select') return pixelSelectDown(x, y);
   if (!editable()) return null;
@@ -412,6 +420,10 @@ function vectorDown(p, e) {
     pickColor(p.x, p.y, alt);
     return { move: (q) => pickColor(q.x, q.y, alt) };
   }
+  if (tool === 'pointer') {
+    const h = handleAt(p);
+    return h ? vectorResize(h) : vectorSelectDown(p, e);
+  }
   if (tool === 'select') return vectorSelectDown(p, e);
   if (!editable()) return null;
   const cel = vcel();
@@ -498,8 +510,8 @@ function vectorDown(p, e) {
 function vectorSelectDown(p, e) {
   const cel = vcel();
   const tol = 5 / app.zoom;
-  // poignée d'un point (une seule forme sélectionnée)
-  if (app.vsel.size === 1) {
+  // poignée d'un point (une seule forme sélectionnée) — outil Sélection seulement
+  if (app.vsel.size === 1 && app.tool === 'select') {
     const s = cel.shapes.find((sh) => app.vsel.has(sh.id));
     if (s && !s.img) {
       const ni = s.pts.findIndex((q) => Math.hypot(q[0] - p.x, q[1] - p.y) <= 7 / app.zoom);
@@ -565,7 +577,7 @@ function vectorSelectDown(p, e) {
 }
 
 export function applyToSelection(prop, value) {
-  if (app.mode !== 'vector' || app.tool !== 'select' || !app.vsel.size || curLayer().locked) return;
+  if (app.mode !== 'vector' || !isSelTool() || !app.vsel.size || curLayer().locked) return;
   const cel = vcel();
   const before = structuredClone(cel.shapes);
   if (value === TRANSPARENT) return; // un trait transparent rendrait la forme invisible
@@ -675,7 +687,7 @@ export function paste() {
     app.vsel = new Set(copies.map((s) => s.id));
     commitVector(before);
   }
-  setTool('select');
+  if (!isSelTool()) setTool('pointer');
   requestRender();
   refreshUI();
 }
@@ -685,7 +697,7 @@ export function selectAll() {
     commitFloating();
     app.sel = { x: 0, y: 0, w: W(), h: H() };
   } else app.vsel = new Set(vcel().shapes.map((s) => s.id));
-  setTool('select');
+  if (!isSelTool()) setTool('pointer');
   requestRender();
   refreshUI();
 }
@@ -721,6 +733,7 @@ export function transform(kind) {
         f.y += Math.floor((c.height - c.width) / 2);
       }
       f.canvas = n;
+      delete f.src;
       app.sel = floatRect(f);
     } else {
       const ctx = celCtx();
@@ -767,6 +780,134 @@ export function transform(kind) {
   requestRender();
 }
 
+// ================================================================ Pointeur : poignées de redimensionnement
+const HANDLES = [['nw', 0, 0], ['n', 0.5, 0], ['ne', 1, 0], ['e', 1, 0.5], ['se', 1, 1], ['s', 0.5, 1], ['sw', 0, 1], ['w', 0, 0.5]];
+const CURSORS = { nw: 'nwse-resize', se: 'nwse-resize', ne: 'nesw-resize', sw: 'nesw-resize', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize' };
+
+/** Rectangle englobant de la sélection (coordonnées du document) */
+function selBox() {
+  if (app.mode === 'pixel') return app.floating ? floatRect(app.floating) : app.sel;
+  if (!app.vsel.size) return null;
+  const cel = app.doc.cels.get(app.doc.key(curLayer().id, curFrame().id));
+  if (!cel) return null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const s of cel.shapes) {
+    if (!app.vsel.has(s.id)) continue;
+    const b = bbox(s);
+    x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+    x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
+  }
+  return x1 > x0 || y1 > y0 ? { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } : null;
+}
+
+function handleAt(p) {
+  if (app.tool !== 'pointer') return null;
+  const b = selBox();
+  if (!b) return null;
+  const tol = 7 / app.zoom;
+  for (const [id, fx, fy] of HANDLES) {
+    if (Math.abs(p.x - (b.x + fx * b.w)) <= tol && Math.abs(p.y - (b.y + fy * b.h)) <= tol) return { id, fx, fy, b: { ...b } };
+  }
+  return null;
+}
+
+/** Nouveau rectangle quand on tire la poignée h jusqu'au point q (Maj = garder les proportions) */
+function resizeRect(h, q, keepRatio, pixel) {
+  const b = h.b;
+  let x0 = b.x, y0 = b.y, x1 = b.x + b.w, y1 = b.y + b.h;
+  if (h.fx === 0) x0 = q.x; else if (h.fx === 1) x1 = q.x;
+  if (h.fy === 0) y0 = q.y; else if (h.fy === 1) y1 = q.y;
+  if (keepRatio && h.fx !== 0.5 && h.fy !== 0.5 && b.w && b.h) {
+    const k = Math.max(Math.abs(x1 - x0) / b.w, Math.abs(y1 - y0) / b.h);
+    if (h.fx === 0) x0 = x1 - b.w * k; else x1 = x0 + b.w * k;
+    if (h.fy === 0) y0 = y1 - b.h * k; else y1 = y0 + b.h * k;
+  }
+  if (pixel) [x0, y0, x1, y1] = [x0, y0, x1, y1].map(Math.round);
+  const min = pixel ? 1 : 1 / app.zoom;
+  // on ne laisse pas la zone se retourner : taille minimale du côté tiré
+  if (x1 - x0 < min) h.fx === 0 ? (x0 = x1 - min) : (x1 = x0 + min);
+  if (y1 - y0 < min) h.fy === 0 ? (y0 = y1 - min) : (y1 = y0 + min);
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+function scaleCanvas(src, w, h) {
+  const c = makeCanvas(w, h);
+  const x = ctx2d(c);
+  x.imageSmoothingEnabled = false; // pixel art : agrandissement net
+  x.drawImage(src, 0, 0, w, h);
+  return c;
+}
+
+function pixelResize(h) {
+  if (!app.floating) {
+    if (!editable()) return null;
+    lift();
+  }
+  const f = app.floating;
+  f.src ||= f.canvas; // on repart toujours de l'image d'origine pour ne pas l'abîmer
+  h.b = floatRect(f);
+  return {
+    move(q, ev) {
+      const r = resizeRect(h, q, ev.shiftKey, true);
+      f.x = r.x;
+      f.y = r.y;
+      if (r.w !== f.canvas.width || r.h !== f.canvas.height) f.canvas = scaleCanvas(f.src, r.w, r.h);
+      app.sel = floatRect(f);
+    },
+    up: () => refreshUI(),
+  };
+}
+
+function vectorResize(h) {
+  if (!editable()) return null;
+  const cel = vcel();
+  const before = structuredClone(cel.shapes);
+  const sel = cel.shapes.filter((s) => app.vsel.has(s.id));
+  const orig = sel.map((s) => s.pts.map((q) => [...q]));
+  const b = h.b;
+  let moved = false;
+  return {
+    move(q, ev) {
+      moved = true;
+      const r = resizeRect(h, { x: snapV(q.x), y: snapV(q.y) }, ev.shiftKey, false);
+      const sx = b.w > 1e-6 ? r.w / b.w : 1, sy = b.h > 1e-6 ? r.h / b.h : 1;
+      sel.forEach((s, i) => (s.pts = orig[i].map(([x, y]) => [R2(r.x + (x - b.x) * sx), R2(r.y + (y - b.y) * sy)])));
+    },
+    up: () => moved && commitVector(before),
+  };
+}
+
+function drawHandles(ctx, X, Y, accent) {
+  if (app.tool !== 'pointer') return;
+  const b = selBox();
+  if (!b) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (app.mode === 'vector') {
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = accent;
+    ctx.strokeRect(Math.round(X(b.x)) + 0.5, Math.round(Y(b.y)) + 0.5, Math.round(X(b.x + b.w) - X(b.x)), Math.round(Y(b.y + b.h) - Y(b.y)));
+  }
+  for (const [, fx, fy] of HANDLES) {
+    const hx = Math.round(X(b.x + fx * b.w)), hy = Math.round(Y(b.y + fy * b.h));
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(hx - 4, hy - 4, 8, 8);
+    ctx.strokeRect(hx - 4 + 0.5, hy - 4 + 0.5, 7, 7);
+  }
+}
+
+/** Curseur de la souris selon l'outil et ce qu'il y a sous la souris */
+export function cursorAt(p) {
+  if (app.tool === 'hand') return 'grab';
+  if (app.tool !== 'pointer') return 'crosshair';
+  const h = handleAt(p);
+  if (h) return CURSORS[h.id];
+  const b = selBox();
+  if (b && p.x >= b.x && p.y >= b.y && p.x <= b.x + b.w && p.y <= b.y + b.h) return 'move';
+  return 'default';
+}
+
 // ================================================================ Superposition (curseur, sélection…)
 function ants(ctx, x, y, w, h) {
   ctx.lineWidth = 1;
@@ -786,7 +927,8 @@ export function drawToolOverlay(ctx, z, ox, oy) {
   const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2f8cff';
   if (app.mode === 'pixel') {
     if (app.sel) ants(ctx, Math.round(X(app.sel.x)) + 0.5, Math.round(Y(app.sel.y)) + 0.5, Math.round(app.sel.w * z) - 1, Math.round(app.sel.h * z) - 1);
-    if (app.hover && !app.playing && app.tool !== 'select' && app.tool !== 'picker') {
+    drawHandles(ctx, X, Y, accent);
+    if (app.hover && !app.playing && !isSelTool() && app.tool !== 'picker' && app.tool !== 'hand') {
       const s = app.tool === 'bucket' ? 1 : app.pixelSize;
       const o = Math.floor((s - 1) / 2);
       const hx = Math.floor(app.hover.x) - o, hy = Math.floor(app.hover.y) - o;
@@ -810,7 +952,7 @@ export function drawToolOverlay(ctx, z, ox, oy) {
       ctx.strokeRect(Math.round(X(b.x)) + 0.5, Math.round(Y(b.y)) + 0.5, Math.round(b.w * z), Math.round(b.h * z));
       ctx.setLineDash([]);
     }
-    if (sel.length === 1 && !sel[0].img) {
+    if (sel.length === 1 && !sel[0].img && app.tool === 'select') {
       for (const [x, y] of sel[0].pts) {
         ctx.fillStyle = '#fff';
         ctx.strokeStyle = accent;
@@ -822,6 +964,7 @@ export function drawToolOverlay(ctx, z, ox, oy) {
       }
     }
   }
+  drawHandles(ctx, X, Y, accent);
   if (app.marquee) {
     const m = app.marquee;
     ctx.fillStyle = 'rgba(47,140,255,.08)';
