@@ -156,20 +156,120 @@ export class Doc {
     };
   }
 
+  /**
+   * Charge un projet .animo. Le chargement est tolérant pour qu'un humain ou une IA puisse écrire le fichier à la main :
+   * - champs manquants = valeurs par défaut
+   * - clés de cels "calque:frame" avec les ids OU les numéros (0, 1, 2…)
+   * - pixel : image PNG (data URL) ou texte { rows: ["..##.."], palette: { "#": "#ff0000" } }
+   * - dessin : formes { pts: [[x,y]…] } ou simples { type: "rect"|"ellipse"|"circle"|"line"|"path", … }
+   */
   static async load(o) {
-    if (!o || o.app !== 'animotion') throw new Error("Ce fichier n'est pas un projet Animotion");
-    const d = new Doc(o.mode === 'vector' ? 'vector' : 'pixel', o.width, o.height, o.fps || 12);
-    d.layers = o.layers?.length ? o.layers : [d.makeLayer('Calque 1')];
-    d.frames = o.frames?.length ? o.frames : [d.makeFrame()];
+    if (!o || o.app !== 'animotion') throw new Error("Ce fichier n'est pas un projet Animotion (il manque \"app\": \"animotion\")");
+    const mode = o.mode === 'vector' || o.mode === 'dessin' ? 'vector' : 'pixel';
+    const num = (v, def, min, max) => (Number.isFinite(+v) && v !== null && v !== '' ? Math.max(min, Math.min(max, Math.round(+v))) : def);
+    const d = new Doc(mode, num(o.width, mode === 'pixel' ? 32 : 800, 1, 8192), num(o.height, mode === 'pixel' ? 32 : 600, 1, 8192), num(o.fps, 12, 1, 60));
+    const layers = Array.isArray(o.layers) && o.layers.length ? o.layers : [{}];
+    d.layers = layers.map((l, i) => ({
+      id: String(l.id ?? 'calque' + (i + 1)).replace(/:/g, '_'),
+      name: String(l.name ?? 'Calque ' + (i + 1)),
+      visible: l.visible !== false,
+      locked: !!l.locked,
+      opacity: Math.max(0, Math.min(1, Number.isFinite(+l.opacity) && l.opacity !== null ? +l.opacity : 1)),
+    }));
+    const frames = Array.isArray(o.frames) && o.frames.length ? o.frames : typeof o.frames === 'number' ? Array.from({ length: o.frames }, () => ({})) : [{}];
+    d.frames = frames.map((f, i) => ({
+      id: String(f?.id ?? 'f' + (i + 1)).replace(/:/g, '_'),
+      duration: Number.isFinite(+f?.duration) && f?.duration ? Math.max(10, Math.round(+f.duration)) : null,
+    }));
+    // "calque:frame" -> clé interne (accepte les ids ou les numéros)
+    const resolve = (key) => {
+      const [lk, fk] = String(key).split(':');
+      const l = d.layers.find((x) => x.id === lk) || (/^\d+$/.test(lk) ? d.layers[+lk] : null);
+      const f = d.frames.find((x) => x.id === fk) || (/^\d+$/.test(fk) ? d.frames[+fk] : null);
+      return l && f ? d.key(l.id, f.id) : null;
+    };
     for (const [k, v] of Object.entries(o.cels || {})) {
-      if (d.mode === 'pixel') {
-        const img = await loadImage(v);
+      const key = resolve(k);
+      if (!key || v == null) continue;
+      if (mode === 'pixel') {
         const c = makeCanvas(d.width, d.height);
-        ctx2d(c).drawImage(img, 0, 0);
-        d.cels.set(k, c);
-        d.flags.set(k, true);
-      } else d.cels.set(k, { shapes: v });
+        if (typeof v === 'string') ctx2d(c).drawImage(await loadImage(v), 0, 0);
+        else drawRows(ctx2d(c), Array.isArray(v) ? { rows: v } : v, o.palette);
+        d.cels.set(key, c);
+        d.flags.set(key, true);
+      } else {
+        const list = Array.isArray(v) ? v : Array.isArray(v.shapes) ? v.shapes : [];
+        d.cels.set(key, { shapes: list.map(normalizeShape).filter(Boolean) });
+      }
     }
+    d.updateAllFlags();
     return d;
   }
+}
+
+// ---------------------------------------------------------- Aides au chargement « écrit à la main »
+const CLEAR = new Set(['.', ' ', '_', '-', '0']);
+function drawRows(ctx, cel, globalPal) {
+  const pal = { ...(globalPal || {}), ...(cel.palette || {}) };
+  const ox = Math.round(+cel.x || 0), oy = Math.round(+cel.y || 0);
+  (cel.rows || []).forEach((row, y) => {
+    const cells = typeof row === 'string' ? [...row] : Array.isArray(row) ? row : [];
+    cells.forEach((ch, x) => {
+      const key = String(ch);
+      let col = Object.prototype.hasOwnProperty.call(pal, key) ? pal[key] : CLEAR.has(key) ? null : '#ff00ff'; // magenta = caractère sans couleur
+      if (!col || col === 'transparent') return;
+      ctx.fillStyle = col;
+      ctx.fillRect(ox + x, oy + y, 1, 1);
+    });
+  });
+}
+
+function ellipsePts(cx, cy, rx, ry) {
+  const pts = [];
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    pts.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]);
+  }
+  return pts;
+}
+
+function normalizeShape(s) {
+  if (!s || typeof s !== 'object') return null;
+  const n = (v, def = 0) => (Number.isFinite(+v) ? +v : def);
+  let pts = Array.isArray(s.pts) ? s.pts : Array.isArray(s.points) ? s.points : null;
+  let closed = !!s.closed, smooth = !!s.smooth;
+  switch (s.type) {
+    case 'rect': {
+      const x = n(s.x), y = n(s.y), w = n(s.w ?? s.width, 10), h = n(s.h ?? s.height, 10);
+      pts = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+      closed = true; smooth = false;
+      break;
+    }
+    case 'circle':
+    case 'ellipse':
+      pts = ellipsePts(n(s.cx), n(s.cy), n(s.rx ?? s.r, 10), n(s.ry ?? s.r, 10));
+      closed = true; smooth = true;
+      break;
+    case 'line':
+      pts = [[n(s.x1), n(s.y1)], [n(s.x2), n(s.y2)]];
+      closed = false; smooth = false;
+      break;
+    case 'polygon':
+      closed = true;
+      break;
+    case 'path':
+    default:
+      if (s.smooth === undefined && pts && pts.length > 2) smooth = true;
+  }
+  if (!pts || !pts.length) return null;
+  pts = pts.map((p) => (Array.isArray(p) ? [n(p[0]), n(p[1])] : [n(p.x), n(p.y)]));
+  const filled = s.fill && s.fill !== 'none' && s.fill !== 'transparent' ? s.fill : null;
+  return {
+    id: s.id ? String(s.id) : newId(),
+    pts, smooth, closed,
+    stroke: s.stroke === null || s.stroke === 'none' ? null : s.stroke || (filled ? null : '#000000'),
+    // épaisseur du trait : strokeWidth (pour rect, « width » désigne la largeur du rectangle)
+    width: n(s.strokeWidth ?? (s.type === 'rect' ? undefined : s.width), 3),
+    fill: filled,
+  };
 }

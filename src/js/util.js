@@ -81,3 +81,40 @@ export function cloneCanvas(c) {
   ctx2d(n).drawImage(c, 0, 0);
   return n;
 }
+
+/**
+ * JSON « tolérant » : accepte les blocs ```json, les commentaires (// et bloc) et les virgules en trop
+ * (ce qu'une IA ou un humain écrit souvent à la main).
+ */
+export function parseLooseJSON(text) {
+  let t = String(text).trim().replace(/^﻿/, '');
+  const fence = t.match(/```(?:json|animo)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1];
+  try {
+    return JSON.parse(t);
+  } catch {}
+  let out = '', inStr = false, q = '';
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i], n = t[i + 1];
+    if (inStr) {
+      out += c;
+      if (c === '\\') out += t[++i] ?? '';
+      else if (c === q) inStr = false;
+    } else if (c === '"') {
+      inStr = true;
+      q = c;
+      out += c;
+    } else if (c === '/' && n === '/') {
+      while (i < t.length && t[i] !== '\n') i++;
+      out += '\n';
+    } else if (c === '/' && n === '*') {
+      i += 2;
+      while (i < t.length && !(t[i] === '*' && t[i + 1] === '/')) i++;
+      i++;
+    } else out += c;
+  }
+  out = out.replace(/,(\s*[}\]])/g, '$1');
+  const start = out.indexOf('{'), end = out.lastIndexOf('}');
+  if (start > 0 || (end >= 0 && end < out.length - 1)) out = out.slice(start, end + 1);
+  return JSON.parse(out);
+}

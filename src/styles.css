@@ -481,3 +481,17 @@ body.resizing.h { cursor: row-resize !important; }
   background-size: 8px 8px !important;
   background-position: 0 0, 4px 4px !important;
 }
+
+/* ------------------------------------------------ Créer avec Claude */
+.claude-help { display: flex; flex-direction: column; gap: 8px; width: min(760px, 86vw); }
+.claude-help .steps { margin: 0 0 6px; padding-left: 20px; color: var(--text); }
+.claude-help .steps li { margin: 3px 0; }
+.claude-help code { background: var(--bg); padding: 1px 5px; border-radius: 4px; color: var(--icon); }
+.ch-row { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin-top: 6px; }
+.claude-help textarea {
+  width: 100%; min-height: 150px; resize: vertical; font: 12px/1.45 Consolas, monospace; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border2); border-radius: 8px; padding: 10px; outline: none;
+}
+.claude-help textarea:focus { border-color: var(--accent); }
+.claude-help .ch-prompt { min-height: 120px; color: var(--muted); }
+.ch-error { color: var(--danger); margin: 0; font-size: 12.5px; min-height: 1em; }

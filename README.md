@@ -42,6 +42,8 @@ const coeur = [[0, 1, 0, 1, 0], [1, 2, 1, 2, 1]];
 const couleurs = ["transparent", "#ff004d", "#ff77a8"];
 ```
 
+Pour faire créer une animation complète par Claude, vois [docs/FORMAT-ANIMO.md](docs/FORMAT-ANIMO.md) (ou Aide › Demander à Claude dans l’appli).
+
 Les caractères `.`, espace, `_`, `-` et `0` sont transparents par défaut. Le script s'exécute dans un bac à sable isolé : il n'a accès ni à l'appli ni à tes fichiers.
 
 ## Fonctionnalités

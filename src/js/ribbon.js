@@ -23,7 +23,7 @@ function colorInput(value, onchange) {
 }
 import { PALETTES, ACCENTS } from './palettes.js';
 import { toggleFullscreen, isTauri } from './platform.js';
-import { showShortcuts, showTutorial, showAbout } from './help.js';
+import { showShortcuts, showTutorial, showAbout, showClaudeHelp } from './help.js';
 import { checkForUpdate } from './update.js';
 import { importSpriteScript } from './sprites.js';
 import { discordSettings, setDiscord, discordAvailable } from './discord.js';
@@ -139,7 +139,7 @@ function groups(tab) {
           }
           return box;
         })] },
-        { title: 'Importer', items: [B('image', 'Image', A.importImage), B('sheet', 'Spritesheet', A.importSpritesheet), B('code', 'Script .js', () => importSpriteScript(), { tip: 'Sprites décrits en texte, ex. ["..##..", ".####."] — ou glisse le fichier sur la fenêtre' })] },
+        { title: 'Importer', items: [B('image', 'Image', A.importImage), B('sheet', 'Spritesheet', A.importSpritesheet), B('wand', 'Depuis Claude', showClaudeHelp, { tip: 'Coller une animation créée par Claude' }), B('code', 'Script .js', () => importSpriteScript(), { tip: 'Sprites décrits en texte, ex. ["..##..", ".####."] — ou glisse le fichier sur la fenêtre' })] },
         { title: 'Exporter', items: [B('export', 'Frame PNG', X.exportPNG), B('gif', 'GIF animé', X.exportGIF)] },
       ];
     case 'accueil':
@@ -369,6 +369,7 @@ function groups(tab) {
       ];
     case 'aide':
       return [
+        { title: 'Claude', items: [B('wand', 'Demander à Claude', showClaudeHelp, { tip: 'Faire créer une animation par Claude et la coller ici' })] },
         { title: 'Aide', items: [B('keyboard', 'Raccourcis', showShortcuts, { tip: 'F1' }), B('book', 'Tutoriel', showTutorial), B('info', 'À propos', showAbout), B('import', 'Mises à jour', () => checkForUpdate(false))] },
         { title: 'Discord', items: [
           B('discord', discordSettings.enabled ? 'Statut Discord' : 'Discord coupé', () => setDiscord('enabled', !discordSettings.enabled), {

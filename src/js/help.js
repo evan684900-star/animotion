@@ -3,6 +3,9 @@ import { el } from './util.js';
 import { LOGO } from './icons.js';
 import { store } from './state.js';
 import { currentVersion } from './update.js';
+import { CLAUDE_PROMPT } from './claude-prompt.js';
+import { openProjectText } from './actions.js';
+import { toast } from './dialogs.js';
 
 const SHORTCUTS = [
   ['Outils', [
@@ -70,4 +73,66 @@ export async function showAbout() {
     content: `<div class="about"><div class="about-logo">${LOGO}</div><div><h2>Animotion</h2><p>Version ${v}</p><p>Logiciel d’animation dessin & pixel art, en noir et bleu. Fait avec ❤️ et Tauri.</p></div></div>`,
     buttons: [{ label: 'Fermer', value: true, primary: true }],
   });
+}
+
+// ---------------------------------------------------------- Créer une animation avec Claude
+export function showClaudeHelp() {
+  const box = el('div', 'claude-help');
+  box.innerHTML = `
+    <ol class="steps">
+      <li><b>Copie le message</b> ci-dessous : il explique le format .animo à Claude.</li>
+      <li><b>Colle-le dans Claude</b> et remplace <code>[décris ici ton animation…]</code> par ce que tu veux.</li>
+      <li><b>Colle la réponse de Claude</b> dans la case du bas, puis « Ouvrir l’animation ».</li>
+    </ol>
+    <div class="ch-row"><b>1. Message pour Claude</b><button class="btn ch-copy">Copier le message</button></div>
+    <textarea class="ch-prompt" readonly></textarea>
+    <div class="ch-row"><b>3. Réponse de Claude</b><span class="muted">(tu peux aussi l’enregistrer en .animo et l’ouvrir avec Fichier › Ouvrir)</span></div>
+    <textarea class="ch-answer" placeholder="Colle ici le JSON renvoyé par Claude…"></textarea>
+    <p class="ch-error"></p>`;
+  const prompt = box.querySelector('.ch-prompt');
+  prompt.value = CLAUDE_PROMPT;
+  box.querySelector('.ch-copy').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(CLAUDE_PROMPT);
+      toast('Message copié 📋 Colle-le dans Claude !', 'ok');
+    } catch {
+      prompt.focus();
+      prompt.select();
+      document.execCommand('copy');
+      toast('Message sélectionné : fais Ctrl+C si besoin', 'info');
+    }
+  };
+  return modal({
+    title: 'Créer une animation avec Claude ✨',
+    content: box,
+    wide: true,
+    buttons: [
+      { label: 'Fermer', value: null },
+      {
+        label: 'Ouvrir l’animation',
+        primary: true,
+        value: (b) => b.querySelector('.ch-answer').value,
+      },
+    ],
+  }).then(async (text) => {
+    if (!text || !text.trim()) return;
+    const err = await openProjectText(text);
+    if (err) {
+      toast('La réponse de Claude n’est pas un projet valide : ' + err, 'error', 7000);
+      showClaudeHelpWith(text, err);
+    }
+  });
+}
+
+// rouvre la fenêtre en gardant le texte collé et en affichant l'erreur
+function showClaudeHelpWith(text, err) {
+  setTimeout(() => {
+    showClaudeHelp();
+    setTimeout(() => {
+      const a = document.querySelector('.ch-answer');
+      const e = document.querySelector('.ch-error');
+      if (a) a.value = text;
+      if (e) e.textContent = '⚠ ' + err + ' — tu peux demander à Claude de corriger son JSON.';
+    }, 50);
+  }, 50);
 }

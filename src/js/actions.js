@@ -5,7 +5,7 @@ import { requestRender, fitView } from './view.js';
 import { commitFloating, applyToSelection, setTool } from './tools.js';
 import { toast, form, modal, confirmDialog } from './dialogs.js';
 import { saveFile, openFile, readPath, isTauri, setWindowTitle } from './platform.js';
-import { ctx2d, makeCanvas, loadImage, bytesToDataURL, mimeFromName, baseName, normalizeHex } from './util.js';
+import { ctx2d, makeCanvas, loadImage, bytesToDataURL, mimeFromName, baseName, normalizeHex, parseLooseJSON } from './util.js';
 import { PALETTES, SIZE_PRESETS } from './palettes.js';
 import { showStart, hideStart } from './start.js';
 import { clearRecovery } from './recovery.js';
@@ -350,6 +350,22 @@ export async function saveProject(as = false) {
   }
 }
 
+/** Ouvre un projet à partir de texte collé (ex. réponse de Claude). Renvoie un message d'erreur ou null. */
+export async function openProjectText(text, name = 'Animation de Claude') {
+  let doc;
+  try {
+    doc = await Doc.load(parseLooseJSON(text));
+  } catch (e) {
+    return e.message || String(e);
+  }
+  if (!(await confirmLoseChanges())) return null;
+  setDoc(doc, { name });
+  app.dirty = true;
+  refreshUI();
+  toast('Animation chargée ! Pense à l’enregistrer (Ctrl+S) 💾', 'ok', 5000);
+  return null;
+}
+
 export async function openProjectBytes(file) {
   return openProject(null, file);
 }
@@ -359,7 +375,7 @@ export async function openProject(path = null, given = null) {
   try {
     const f = given || (path ? await readPath(path) : await openFile([{ name: 'Projet Animotion', extensions: ['animo'] }]));
     if (!f) return;
-    const obj = JSON.parse(new TextDecoder().decode(f.bytes));
+    const obj = parseLooseJSON(new TextDecoder().decode(f.bytes));
     const doc = await Doc.load(obj);
     setDoc(doc, { path: f.path, name: f.name.replace(/\.animo$/i, '') });
     if (f.path) addRecent(f.path);
