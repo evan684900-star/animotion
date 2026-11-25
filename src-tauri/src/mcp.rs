@@ -150,7 +150,8 @@ fn claude_config_dirs() -> Vec<PathBuf> {
         if let Some(l) = std::env::var_os("LOCALAPPDATA") {
             if let Ok(entries) = std::fs::read_dir(PathBuf::from(l).join("Packages")) {
                 for e in entries.flatten() {
-                    if e.file_name().to_string_lossy().to_lowercase().starts_with("claude") {
+                    // ex. « Claude_xxxx » ou « AnthropicPBC.Claude_xxxx »
+                    if e.file_name().to_string_lossy().to_lowercase().contains("claude") {
                         let d = e.path().join("LocalCache").join("Roaming").join("Claude");
                         if d.exists() {
                             dirs.push(d);

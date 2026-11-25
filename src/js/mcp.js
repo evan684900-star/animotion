@@ -388,7 +388,8 @@ export async function showMcpSetup() {
     const files = await T.core.invoke('mcp_install');
     await modal({
       title: 'Animotion est connecté ✔',
-      content: `<p>Configuration ajoutée dans :</p><p><code>${files.map(escapeHtml).join('</code><br><code>')}</code></p><p>Maintenant, <b>quitte complètement Claude Desktop</b> et relance-le. Ensuite, demande-lui une animation 🎬</p>`,
+      content: `<p>Configuration ajoutée dans :</p><p><code>${files.map(escapeHtml).join('</code><br><code>')}</code></p><p>Maintenant, <b>quitte complètement Claude Desktop</b> et relance-le. Ensuite, demande-lui une animation 🎬</p>
+        <p class="muted">Si « animotion » n’apparaît toujours pas dans Claude Desktop › Paramètres › Application de bureau › Extensions › Serveurs MCP locaux : clique là-bas sur « Modifier la configuration » et colle la configuration manuelle de cette fenêtre.</p>`,
       buttons: [{ label: 'Compris !', value: true, primary: true }],
     });
   } catch (e) {
