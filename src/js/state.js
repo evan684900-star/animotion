@@ -18,6 +18,20 @@ export const app = {
   showGrid: true,
   showRulers: false,
   gridMajor: 8,
+  // réglages de la grille (onglet Grille), mémorisés entre les sessions
+  grid: {
+    pixelLines: true, // une ligne par pixel (mode pixel)
+    step: 0, // pas de la grille en mode dessin (0 = automatique selon le zoom)
+    subdiv: 4, // grande ligne toutes les N cases (mode dessin)
+    style: 'lines', // 'lines' | 'dots'
+    color: '#a0bef0',
+    majorColor: '', // vide = couleur d'accent
+    opacity: 50,
+    snap: false, // magnétisme (mode dessin)
+    checker: true, // damier de transparence
+    bg: '#161a22',
+    ...(JSON.parse(localStorage.getItem('animotion.grid') || 'null') || {}),
+  },
   onion: { enabled: false, before: 1, after: 1 },
   playing: false,
   playMode: 'loop',

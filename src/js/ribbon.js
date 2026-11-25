@@ -5,8 +5,22 @@ import * as A from './actions.js';
 import * as X from './export.js';
 import * as Tl from './tools.js';
 import { undo, redo, canUndo, canRedo } from './history.js';
-import { zoomStep, fitView, setZoom, requestRender } from './view.js';
+import { zoomStep, fitView, setZoom, requestRender, gridStep } from './view.js';
 const rr = () => { requestRender(); refreshUI(); };
+// modifie un réglage de grille, le mémorise et redessine
+const setGrid = (k, v) => {
+  app.grid[k] = v;
+  try { localStorage.setItem('animotion.grid', JSON.stringify(app.grid)); } catch {}
+  rr();
+};
+function colorInput(value, onchange) {
+  const c = el('input');
+  c.type = 'color';
+  c.value = value;
+  c.oninput = () => onchange(c.value, false);
+  c.onchange = () => onchange(c.value, true);
+  return c;
+}
 import { PALETTES, ACCENTS } from './palettes.js';
 import { toggleFullscreen, isTauri } from './platform.js';
 import { showShortcuts, showTutorial, showAbout } from './help.js';
@@ -14,7 +28,7 @@ import { checkForUpdate } from './update.js';
 import { layout, toggleLayout, setUiScale, resetLayout } from './layout.js';
 
 const TABS = [
-  ['fichier', 'Fichier'], ['accueil', 'Accueil'], ['calques', 'Calques'], ['animation', 'Animation'],
+  ['fichier', 'Fichier'], ['accueil', 'Accueil'], ['grille', 'Grille'], ['calques', 'Calques'], ['animation', 'Animation'],
   ['rendu', 'Rendu'], ['presets', 'Presets'], ['affichage', 'Affichage'], ['aide', 'Aide'],
 ];
 let current = store('tab') || 'accueil';
@@ -147,6 +161,64 @@ function groups(tab) {
           ...(isPixel ? [] : [check('Lissage du trait', app.smoothing, (v) => { app.smoothing = v; })])
         ))] },
       ];
+    case 'grille': {
+      const g = app.grid;
+      const auto = isPixel ? null : Math.round(gridStep());
+      return [
+        { title: 'Affichage', items: [
+          B('grid', app.showGrid ? 'Affichée' : 'Masquée', () => A.toggle('showGrid'), { active: app.showGrid, tip: 'Ctrl+G' }),
+          B(g.style === 'dots' ? 'pixel' : 'grid', g.style === 'dots' ? 'Style : points' : 'Style : lignes', () => setGrid('style', g.style === 'dots' ? 'lines' : 'dots'), { tip: 'Cliquer pour alterner lignes / points' }),
+          B('sheet', 'Damier', () => setGrid('checker', !g.checker), { active: g.checker }),
+          ...(g.checker ? [] : [N(() => stack(field('Fond', colorInput(g.bg, (v, fin) => { g.bg = v; if (fin) setGrid('bg', v); else requestRender(); }))))]),
+        ] },
+        { title: 'Espacement', items: isPixel ? [
+          B('pixel', 'Pixels', () => setGrid('pixelLines', !g.pixelLines), { active: g.pixelLines }),
+          N(() => stack(
+            field('Grande grille tous les', number(app.gridMajor, 0, 512, (v) => { app.gridMajor = Math.max(0, Math.round(v) || 0); rr(); })),
+          )),
+          N(() => {
+            const row = el('div', 'chip-row');
+            for (const n of [4, 8, 16, 32]) {
+              const c = el('button', 'chip' + (app.gridMajor === n ? ' active' : ''), n + ' px');
+              c.onclick = () => { app.gridMajor = n; rr(); };
+              row.appendChild(c);
+            }
+            return stack(el('span', 'muted', 'Raccourcis'), row);
+          }),
+        ] : [
+          N(() => stack(
+            field('Pas de la grille (0 = auto)', number(g.step, 0, 2000, (v) => setGrid('step', Math.max(0, Math.round(v) || 0)))),
+            el('span', 'muted', g.step ? `Une case = ${g.step} px` : `Automatique : ${auto} px à ce zoom`),
+          )),
+          N(() => stack(field('Grande ligne toutes les', number(g.subdiv, 1, 32, (v) => setGrid('subdiv', Math.max(1, Math.round(v) || 1)))), el('span', 'muted', 'cases'))),
+        ] },
+        { title: 'Couleurs', items: [N(() => {
+          const major = colorInput(g.majorColor || app.accent, (v, fin) => { g.majorColor = v; if (fin) setGrid('majorColor', v); else requestRender(); });
+          const reset = el('button', 'mini-btn', 'Accent');
+          reset.title = 'Utiliser la couleur d’accent';
+          reset.onclick = () => setGrid('majorColor', '');
+          const mrow = el('div', 'size-ctl');
+          mrow.append(major, reset);
+          return stack(
+            field('Petites lignes', colorInput(g.color, (v, fin) => { g.color = v; if (fin) setGrid('color', v); else requestRender(); })),
+            field('Grandes lignes', mrow),
+          );
+        }), N(() => {
+          const op = el('input');
+          Object.assign(op, { type: 'range', min: 5, max: 100, value: g.opacity });
+          const ov = el('span', 'val', g.opacity + ' %');
+          op.oninput = () => { g.opacity = Number(op.value); ov.textContent = op.value + ' %'; requestRender(); };
+          op.onchange = () => setGrid('opacity', Number(op.value));
+          const w = el('div', 'size-ctl');
+          w.append(op, ov);
+          return stack(el('span', 'muted', 'Opacité'), w);
+        })] },
+        ...(isPixel ? [] : [{ title: 'Magnétisme', items: [
+          B('wand', g.snap ? 'Aimanté' : 'Libre', () => setGrid('snap', !g.snap), { active: g.snap, tip: 'Les formes et les points s’accrochent à la grille' }),
+        ] }]),
+        { title: 'Canevas', items: [B('resize', 'Taille…', () => A.resizeCanvasDialog())] },
+      ];
+    }
     case 'calques':
       return [
         { title: 'Calques', items: [
@@ -264,11 +336,7 @@ function groups(tab) {
           B('fit', 'Ajuster', fitView, { tip: 'Ctrl+0' }), B('one', '100 %', () => setZoom(1), { tip: 'Ctrl+1' }),
         ] },
         { title: 'Repères', items: [
-          B('grid', 'Grille', () => A.toggle('showGrid'), { active: app.showGrid, tip: 'Ctrl+G' }),
           B('ruler', 'Règles', () => A.toggle('showRulers'), { active: app.showRulers, tip: 'Ctrl+R' }),
-          N(() => stack(field(isPixel ? 'Grande grille tous les' : 'Grille', isPixel
-            ? select([[0, 'Aucune'], [4, '4 px'], [8, '8 px'], [16, '16 px'], [32, '32 px']], app.gridMajor, (v) => { app.gridMajor = Number(v); rr(); })
-            : el('span', 'muted', 'automatique')))),
         ] },
         { title: 'Fenêtre', items: [B('full', 'Plein écran', toggleFullscreen, { tip: 'F11' })] },
         { title: 'Interface', items: [

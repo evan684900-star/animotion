@@ -164,9 +164,11 @@ function renderView() {
   ctx.beginPath();
   ctx.rect(ox, oy, dw, dh);
   ctx.clip();
-  const pat = checkerPattern(ctx);
-  pat.setTransform(new DOMMatrix().translate(ox, oy).scale(dpr));
-  ctx.fillStyle = pat;
+  if (app.grid.checker) {
+    const pat = checkerPattern(ctx);
+    pat.setTransform(new DOMMatrix().translate(ox, oy).scale(dpr));
+    ctx.fillStyle = pat;
+  } else ctx.fillStyle = app.grid.bg;
   ctx.fillRect(ox, oy, dw, dh);
   const T = [z, 0, 0, z, ox, oy];
   if (app.onion.enabled && !app.playing) drawOnion(ctx, T);
@@ -181,8 +183,25 @@ function renderView() {
   drawToolOverlay(ctx, z, ox, oy, dpr);
 }
 
+const rgba = (hex, a) => {
+  const n = parseInt(String(hex).replace('#', ''), 16) || 0;
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${Math.max(0, Math.min(1, a))})`;
+};
+
+/** Pas de la grille en mode dessin (en unités du document) */
+export function gridStep() {
+  if (app.grid.step > 0) return app.grid.step;
+  let step = 25;
+  while (step * app.zoom < 14) step *= 2;
+  return step;
+}
+
 function drawGrid(ctx, z, ox, oy, dw, dh) {
   const d = app.doc;
+  const g = app.grid;
+  const op = g.opacity / 50;
+  const minorCol = rgba(g.color, (d.mode === 'pixel' ? 0.16 : 0.1) * op);
+  const majorCol = g.majorColor ? rgba(g.majorColor, 0.38 * op) : `rgba(${css('--accent-rgb') || '47,140,255'},${Math.min(1, 0.38 * op)})`;
   const x0 = Math.max(0, Math.floor(-ox / z)), x1 = Math.min(d.width, Math.ceil((vp.width - ox) / z));
   const y0 = Math.max(0, Math.floor(-oy / z)), y1 = Math.min(d.height, Math.ceil((vp.height - oy) / z));
   const line = (step, color) => {
@@ -201,15 +220,24 @@ function drawGrid(ctx, z, ox, oy, dw, dh) {
     ctx.lineWidth = 1;
     ctx.stroke();
   };
-  const rgb = css('--accent-rgb') || '47,140,255';
+  const dots = (step, color, major) => {
+    if (step * z < 6) return;
+    const r = major || step * z >= 16 ? 1 : 0;
+    ctx.fillStyle = color;
+    for (let x = Math.ceil(x0 / step) * step; x <= x1; x += step) {
+      for (let y = Math.ceil(y0 / step) * step; y <= y1; y += step) {
+        ctx.fillRect(Math.round(ox + x * z) - r, Math.round(oy + y * z) - r, r * 2 + 1, r * 2 + 1);
+      }
+    }
+  };
+  const draw = (step, color, major) => (g.style === 'dots' ? dots(step, color.replace(/[\d.]+\)$/, (m) => Math.min(1, parseFloat(m) * (major ? 2.2 : 3.5)) + ')'), major) : line(step, color));
   if (d.mode === 'pixel') {
-    if (z >= 5 * dpr) line(1, 'rgba(160,190,240,.16)');
-    if (app.gridMajor > 1 && z * app.gridMajor >= 8) line(app.gridMajor, `rgba(${rgb},.38)`);
+    if (g.pixelLines && z >= 5 * dpr) draw(1, minorCol, false);
+    if (app.gridMajor > 1 && z * app.gridMajor >= 8) draw(app.gridMajor, majorCol, true);
   } else {
-    let step = 25;
-    while (step * z < 14) step *= 2;
-    line(step, 'rgba(150,180,230,.08)');
-    line(step * 4, `rgba(${rgb},.22)`);
+    const step = gridStep();
+    if (step * z >= 4) draw(step, minorCol, false);
+    if (g.subdiv > 1) draw(step * g.subdiv, majorCol, true);
   }
 }
 

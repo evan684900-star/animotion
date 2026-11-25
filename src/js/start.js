@@ -13,6 +13,56 @@ export function hideStart() {
   root.innerHTML = '';
 }
 
+// ---------------------------------------------------------- Faisceau lumineux
+// Large en haut (coins de l'écran), il se resserre sur les cartes puis descend en colonne.
+function drawBeam() {
+  if (root.classList.contains('hidden')) return;
+  const target = root.querySelector('.start-cards, .start-config');
+  let svg = root.querySelector('.start-beam');
+  if (!target) return svg?.remove();
+  const W = root.clientWidth, H = Math.max(root.clientHeight, root.scrollHeight);
+  const r = target.getBoundingClientRect();
+  const top = r.top + root.scrollTop, bottom = r.bottom + root.scrollTop;
+  const gw = r.width;
+  const L1 = r.left + gw * 0.17, R1 = r.right - gw * 0.17; // resserrement au niveau du haut des cartes
+  const L2 = r.left + gw * 0.27, R2 = r.right - gw * 0.27; // colonne sous les cartes
+  const pts = [[0, 0], [W, 0], [R1, top], [R2, bottom], [R2, H], [L2, H], [L2, bottom], [L1, top]];
+  const poly = pts.map((p) => p.map(Math.round).join(',')).join(' ');
+  const edgeL = `M0,0 L${L1},${top} L${L2},${bottom} L${L2},${H}`;
+  const edgeR = `M${W},0 L${R1},${top} L${R2},${bottom} L${R2},${H}`;
+  if (!svg) {
+    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('start-beam');
+    root.prepend(svg);
+  }
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="beamFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="var(--accent)" stop-opacity=".16"/>
+        <stop offset="${(top / H).toFixed(3)}" stop-color="var(--accent)" stop-opacity=".09"/>
+        <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="beamEdge" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="var(--accent)" stop-opacity=".9"/>
+        <stop offset="${(bottom / H).toFixed(3)}" stop-color="var(--accent)" stop-opacity=".45"/>
+        <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="beamSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="28"/></filter>
+      <filter id="beamGlow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>
+    </defs>
+    <polygon points="${poly}" fill="url(#beamFill)" filter="url(#beamSoft)"/>
+    <g fill="none" stroke="url(#beamEdge)" stroke-linejoin="round">
+      <path d="${edgeL}" stroke-width="10" opacity=".35" filter="url(#beamGlow)"/>
+      <path d="${edgeR}" stroke-width="10" opacity=".35" filter="url(#beamGlow)"/>
+      <path d="${edgeL}" stroke-width="1.5" opacity=".7"/>
+      <path d="${edgeR}" stroke-width="1.5" opacity=".7"/>
+    </g>`;
+}
+window.addEventListener('resize', () => requestAnimationFrame(drawBeam));
+
 export function showStart(cancellable = false) {
   root.classList.remove('hidden');
   root.innerHTML = '';
@@ -60,6 +110,7 @@ export function showStart(cancellable = false) {
     wrap.appendChild(r);
   }
   root.appendChild(wrap);
+  requestAnimationFrame(drawBeam);
 
   function config(mode) {
     const presets = SIZE_PRESETS[mode];
@@ -104,6 +155,7 @@ export function showStart(cancellable = false) {
     });
     wrap.innerHTML = '';
     wrap.appendChild(panel);
+    requestAnimationFrame(drawBeam);
     setTimeout(() => wI.focus(), 30);
   }
 }

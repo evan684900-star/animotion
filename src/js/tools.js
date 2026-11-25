@@ -1,5 +1,13 @@
 import { app, hooks, curLayer, curFrame, refreshUI, emit } from './state.js';
-import { requestRender, screenToDoc } from './view.js';
+import { requestRender, screenToDoc, gridStep } from './view.js';
+
+// Magnétisme : en mode dessin, arrondit un point (ou un déplacement) au pas de la grille
+const snapOn = () => app.mode === 'vector' && app.grid.snap;
+const snapV = (v) => {
+  if (!snapOn()) return v;
+  const s = gridStep();
+  return Math.round(v / s) * s;
+};
 import { pushHistory, celEntry } from './history.js';
 import { makeCanvas, ctx2d, hexToRgba, rgbToHex, clamp, cloneCanvas } from './util.js';
 import { shapePath, compositeFrame, bbox } from './render.js';
@@ -456,13 +464,14 @@ function vectorDown(p, e) {
     return null;
   }
   // ligne / rectangle / ellipse
+  p = { x: snapV(p.x), y: snapV(p.y) };
   const s = {
     id: newId(), pts: [], smooth: tool === 'ellipse', closed: tool !== 'line',
     stroke: color, width: app.vectorSize, fill: app.fillShapes && tool !== 'line' ? app.color2 : null,
   };
   cel.shapes.push(s);
   const upd = (q, ev) => {
-    let ex = q.x, ey = q.y;
+    let ex = snapV(q.x), ey = snapV(q.y);
     if (ev.shiftKey) [ex, ey] = constrain(tool, p.x, p.y, ex, ey);
     s.pts = vectorShapePts(tool, p.x, p.y, ex, ey).map((r) => [R2(r[0]), R2(r[1])]);
   };
@@ -493,7 +502,7 @@ function vectorSelectDown(p, e) {
         const before = structuredClone(cel.shapes);
         return {
           move(q) {
-            s.pts[ni] = [R2(q.x), R2(q.y)];
+            s.pts[ni] = [R2(snapV(q.x)), R2(snapV(q.y))];
           },
           up: () => commitVector(before),
         };
@@ -521,7 +530,7 @@ function vectorSelectDown(p, e) {
     let moved = false;
     return {
       move(q) {
-        const dx = q.x - p.x, dy = q.y - p.y;
+        const dx = snapV(q.x - p.x), dy = snapV(q.y - p.y);
         moved = true;
         sel.forEach((s, i) => (s.pts = orig[i].map((r) => [R2(r[0] + dx), R2(r[1] + dy)])));
       },
