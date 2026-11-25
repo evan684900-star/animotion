@@ -146,6 +146,21 @@ fn claude_config_dirs() -> Vec<PathBuf> {
         if let Some(a) = std::env::var_os("APPDATA") {
             dirs.push(PathBuf::from(a).join("Claude"));
         }
+        if let Some(l) = std::env::var_os("LOCALAPPDATA") {
+            // versions récentes : %LOCALAPPDATA%\Claude-Data\<profil>\claude_desktop_config.json
+            let data = PathBuf::from(&l).join("Claude-Data");
+            if data.join("claude_desktop_config.json").exists() {
+                dirs.push(data.clone());
+            }
+            if let Ok(entries) = std::fs::read_dir(&data) {
+                for e in entries.flatten() {
+                    let d = e.path();
+                    if d.is_dir() && d.join("claude_desktop_config.json").exists() {
+                        dirs.push(d);
+                    }
+                }
+            }
+        }
         // version Microsoft Store de Claude
         if let Some(l) = std::env::var_os("LOCALAPPDATA") {
             if let Ok(entries) = std::fs::read_dir(PathBuf::from(l).join("Packages")) {
