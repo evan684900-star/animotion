@@ -350,10 +350,14 @@ export async function saveProject(as = false) {
   }
 }
 
-export async function openProject(path = null) {
+export async function openProjectBytes(file) {
+  return openProject(null, file);
+}
+
+export async function openProject(path = null, given = null) {
   if (!(await confirmLoseChanges())) return;
   try {
-    const f = path ? await readPath(path) : await openFile([{ name: 'Projet Animotion', extensions: ['animo'] }]);
+    const f = given || (path ? await readPath(path) : await openFile([{ name: 'Projet Animotion', extensions: ['animo'] }]));
     if (!f) return;
     const obj = JSON.parse(new TextDecoder().decode(f.bytes));
     const doc = await Doc.load(obj);

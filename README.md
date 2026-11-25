@@ -23,6 +23,27 @@ Liens fixes, toujours vers la dernière version (recompilée automatiquement à 
 - Change la taille de toute l'interface avec Affichage › Plus petit / Plus grand (Ctrl+Maj+ / Ctrl+Maj−).
 - Replie le ruban avec Ctrl+F1, et masque le panneau ou la timeline depuis l'onglet Affichage.
 
+## Importer des sprites depuis un script .js
+
+Fichier › Importer › **Script .js** (ou glisse le fichier sur la fenêtre, ou « Depuis un script .js… » sur l'accueil) :
+
+```js
+const sprite = [
+  "..########..",
+  "..#.####.#..",
+  "############",
+];
+// facultatif : couleurs par caractère (sinon tu les choisis dans la fenêtre d'import)
+const palette = { "#": "#2f8cff" };
+// plusieurs frames = une animation
+const marche = [["..##..", "######"], [".####.", "#....#"]];
+// tableaux de nombres + palette indexée
+const coeur = [[0, 1, 0, 1, 0], [1, 2, 1, 2, 1]];
+const couleurs = ["transparent", "#ff004d", "#ff77a8"];
+```
+
+Les caractères `.`, espace, `_`, `-` et `0` sont transparents par défaut. Le script s'exécute dans un bac à sable isolé : il n'a accès ni à l'appli ni à tes fichiers.
+
 ## Fonctionnalités
 
 | Onglet | Contenu |

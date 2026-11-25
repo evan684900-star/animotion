@@ -25,6 +25,7 @@ import { PALETTES, ACCENTS } from './palettes.js';
 import { toggleFullscreen, isTauri } from './platform.js';
 import { showShortcuts, showTutorial, showAbout } from './help.js';
 import { checkForUpdate } from './update.js';
+import { importSpriteScript } from './sprites.js';
 import { layout, toggleLayout, setUiScale, resetLayout } from './layout.js';
 
 const TABS = [
@@ -136,7 +137,7 @@ function groups(tab) {
           }
           return box;
         })] },
-        { title: 'Importer', items: [B('image', 'Image', A.importImage), B('sheet', 'Spritesheet', A.importSpritesheet)] },
+        { title: 'Importer', items: [B('image', 'Image', A.importImage), B('sheet', 'Spritesheet', A.importSpritesheet), B('code', 'Script .js', () => importSpriteScript(), { tip: 'Sprites décrits en texte, ex. ["..##..", ".####."] — ou glisse le fichier sur la fenêtre' })] },
         { title: 'Exporter', items: [B('export', 'Frame PNG', X.exportPNG), B('gif', 'GIF animé', X.exportGIF)] },
       ];
     case 'accueil':

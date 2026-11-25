@@ -72,6 +72,7 @@ const P = {
   check: 'M5 12l5 5 9-10',
   fill: 'M4 6h16v12H4z M4 10l6-4 M4 15l11-9 M8 18l12-10 M13 18l7-6',
   pixel: 'M3 3h6v6H3z M9 9h6v6H9z M15 3h6v6h-6z M3 15h6v6H3z M15 15h6v6h-6z',
+  code: 'M8 7l-5 5 5 5 M16 7l5 5-5 5 M14 4l-4 16',
   wand: 'M4 20L16 8 M14 4v3 M19 9h-3 M18 5l-2 2 M20 3l-1 1',
 };
 

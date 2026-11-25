@@ -16,7 +16,8 @@
         "minWidth": 960,
         "minHeight": 640,
         "maximized": true,
-        "center": true
+        "center": true,
+        "dragDropEnabled": false
       }
     ],
     "security": {
@@ -25,7 +26,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "Animotion",
     "shortDescription": "Animation dessin & pixel art",
     "icon": [
@@ -37,7 +40,9 @@
     ],
     "windows": {
       "nsis": {
-        "languages": ["French"],
+        "languages": [
+          "French"
+        ],
         "installMode": "currentUser"
       }
     }

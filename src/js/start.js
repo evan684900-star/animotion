@@ -5,6 +5,7 @@ import { SIZE_PRESETS } from './palettes.js';
 import { createProject, openProject, getRecents } from './actions.js';
 import { isTauri } from './platform.js';
 import { toast } from './dialogs.js';
+import { importSpriteScript } from './sprites.js';
 
 const root = document.getElementById('startScreen');
 
@@ -76,6 +77,10 @@ export function showStart(cancellable = false) {
   const open = el('button', 'btn', icon('open', 16) + ' Ouvrir un projet…');
   open.onclick = () => openProject();
   foot.appendChild(open);
+  const script = el('button', 'btn', icon('code', 16) + ' Depuis un script .js…');
+  script.title = 'Créer un projet pixel à partir de sprites écrits en texte dans un fichier .js';
+  script.onclick = () => importSpriteScript();
+  foot.appendChild(script);
   if (cancellable && app.doc) {
     const back = el('button', 'btn ghost', 'Retour au projet');
     back.onclick = hideStart;

@@ -7,13 +7,27 @@ import { initRibbon } from './ribbon.js';
 import { initPanels, renderStatus } from './panels.js';
 import { initTimeline } from './timeline.js';
 import { showStart } from './start.js';
-import { isModalOpen } from './dialogs.js';
+import { isModalOpen, toast } from './dialogs.js';
 import { showShortcuts, showTutorial } from './help.js';
 import { toggleFullscreen } from './platform.js';
 import { LOGO } from './icons.js';
 import { initLayout, toggleLayout, setUiScale, layout } from './layout.js';
 import { checkForUpdate, showWhatsNew } from './update.js';
 import { initRecovery, checkRecovery } from './recovery.js';
+import { importSpriteScript } from './sprites.js';
+
+// Glisser-déposer : un .js ou .json de sprites, ou un projet .animo
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  const f = e.dataTransfer?.files?.[0];
+  if (!f || isModalOpen()) return;
+  const name = f.name.toLowerCase();
+  const file = { path: null, name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) };
+  if (/\.(js|mjs|json|txt)$/.test(name)) importSpriteScript(file);
+  else if (name.endsWith('.animo')) A.openProjectBytes(file);
+  else toast('Glisse un fichier .js (sprites) ou .animo (projet)');
+});
 
 document.querySelector('.brand-logo').innerHTML = LOGO;
 
