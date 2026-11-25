@@ -12,7 +12,7 @@ import { showShortcuts, showTutorial } from './help.js';
 import { toggleFullscreen } from './platform.js';
 import { LOGO } from './icons.js';
 import { initLayout, toggleLayout, setUiScale, layout } from './layout.js';
-import { checkForUpdate } from './update.js';
+import { checkForUpdate, showWhatsNew } from './update.js';
 
 document.querySelector('.brand-logo').innerHTML = LOGO;
 
@@ -188,7 +188,7 @@ resizeViewport();
 showStart();
 emit('ui');
 if (!store('tutoDone')) setTimeout(showTutorial, 400);
-else setTimeout(() => checkForUpdate(true), 2500);
+else setTimeout(async () => (await showWhatsNew()) || checkForUpdate(true), 1200);
 
 // accès debug / tests
 window.__animotion = { app, A, Tl };

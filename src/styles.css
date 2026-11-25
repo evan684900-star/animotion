@@ -438,3 +438,11 @@ body.resizing.h { cursor: row-resize !important; }
 #app.ribbon-min .ribbon-toggle svg { transform: rotate(180deg); }
 .tl-zoom { display: flex; align-items: center; gap: 6px; margin-right: 14px; color: var(--muted); }
 .tl-zoom input[type='range'] { width: 80px; }
+
+/* ------------------------------------------------ Quoi de neuf */
+.whatsnew { display: flex; flex-direction: column; gap: 14px; max-width: 520px; }
+.wn-version { border-left: 2px solid var(--accent); padding-left: 12px; }
+.wn-tag { display: inline-block; font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 1px 8px; border-radius: 10px; margin-bottom: 4px; }
+.whatsnew h4 { margin: 6px 0 4px; font-size: 13.5px; }
+.whatsnew ul { margin: 0 0 4px; padding-left: 18px; color: var(--muted); }
+.whatsnew li { margin: 2px 0; }

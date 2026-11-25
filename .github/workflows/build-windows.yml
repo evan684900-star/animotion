@@ -17,6 +17,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # l'historique complet sert à écrire les notes de version
 
       - uses: actions/setup-node@v4
         with:
@@ -51,6 +53,17 @@ jobs:
           Copy-Item (Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1).FullName dist-exe/Animotion-installateur.exe
           Get-ChildItem dist-exe | Format-Table Name, Length
 
+      # Notes de version = les commits depuis la release précédente (affichées dans l'appli après la mise à jour)
+      - name: Écrire les notes de version
+        shell: bash
+        run: |
+          PREV=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          if [ -n "$PREV" ]; then RANGE="$PREV..HEAD"; else RANGE="-n 5 HEAD"; fi
+          git log $RANGE --no-merges --format='### %s%n%b' \
+            | grep -v -E '^(Co-Authored-By|Claude-Session):' | cat -s > notes.md
+          [ -s notes.md ] || echo "Petites améliorations et corrections." > notes.md
+          cat notes.md
+
       # Les noms des fichiers ne changent jamais : les liens .../releases/latest/download/Animotion.exe restent valides
       - name: Publier la release
         env:
@@ -59,7 +72,7 @@ jobs:
           gh release create "v${{ env.VERSION }}" dist-exe/Animotion.exe dist-exe/Animotion-installateur.exe
           --target ${{ github.sha }}
           --title "Animotion ${{ env.VERSION }}"
-          --notes "Animotion.exe : se lance directement, sans installation. Animotion-installateur.exe : installe l'appli avec un raccourci. Les versions déjà installées se mettent à jour toutes seules au démarrage."
+          --notes-file notes.md
           --latest
 
       # On ne garde que les 3 dernières releases pour que la liste reste simple
