@@ -66,14 +66,24 @@ jobs:
 
       # Les noms des fichiers ne changent jamais : les liens .../releases/latest/download/Animotion.exe restent valides
       - name: Publier la release
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >
-          gh release create "v${{ env.VERSION }}" dist-exe/Animotion.exe dist-exe/Animotion-installateur.exe
-          --target ${{ github.sha }}
-          --title "Animotion ${{ env.VERSION }}"
-          --notes-file notes.md
-          --latest
+        # GitHub répond parfois « 504 » : on réessaie, et on complète une release créée à moitié
+        run: |
+          TAG="v$VERSION"
+          for i in 1 2 3 4; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              gh release upload "$TAG" dist-exe/Animotion.exe dist-exe/Animotion-installateur.exe --clobber \
+                && gh release edit "$TAG" --latest --notes-file notes.md && exit 0
+            else
+              gh release create "$TAG" dist-exe/Animotion.exe dist-exe/Animotion-installateur.exe \
+                --target "${{ github.sha }}" --title "Animotion $VERSION" --notes-file notes.md --latest && exit 0
+            fi
+            echo "Échec de la tentative $i, nouvel essai dans $((i * 20)) s…"
+            sleep $((i * 20))
+          done
+          exit 1
 
       # On ne garde que les 3 dernières releases pour que la liste reste simple
       - name: Nettoyer les anciennes releases
