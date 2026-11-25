@@ -98,12 +98,13 @@ export function sizeControl() {
 export function colorPair() {
   const w = el('div', 'colorpair');
   const mk = (cls, val, sec) => {
-    const lab = el('label', cls);
-    lab.style.background = val;
-    lab.title = sec ? 'Couleur secondaire (clic droit pour dessiner avec)' : 'Couleur principale';
+    const transp = val === 'transparent';
+    const lab = el('label', cls + (transp ? ' is-transparent' : ''));
+    if (!transp) lab.style.background = val;
+    lab.title = (sec ? 'Couleur secondaire (clic droit pour dessiner avec)' : 'Couleur principale') + (transp ? ' — transparent (efface)' : '');
     const i = el('input');
     i.type = 'color';
-    i.value = val;
+    i.value = transp ? '#000000' : val;
     i.onchange = () => A.setColor(i.value, sec);
     lab.appendChild(i);
     return lab;

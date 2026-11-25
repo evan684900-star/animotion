@@ -98,9 +98,19 @@ function commitPixel(before, layerId = curLayer().id, frameId = curFrame().id) {
   refreshUI();
 }
 
+// « Couleur » transparente : peindre avec = effacer
+export const TRANSPARENT = 'transparent';
+function paintRect(ctx, x, y, w, h, color) {
+  if (color === TRANSPARENT) ctx.clearRect(x, y, w, h);
+  else {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  }
+}
+
 function stamp(ctx, x, y, erase, color) {
   const s = app.pixelSize, o = Math.floor((s - 1) / 2);
-  if (erase) ctx.clearRect(x - o, y - o, s, s);
+  if (erase || color === TRANSPARENT) ctx.clearRect(x - o, y - o, s, s);
   else {
     ctx.fillStyle = color;
     ctx.fillRect(x - o, y - o, s, s);
@@ -137,10 +147,7 @@ function pixelShape(ctx, tool, x0, y0, x1, y1, color) {
   const l = Math.min(x0, x1), r = Math.max(x0, x1), t = Math.min(y0, y1), b = Math.max(y0, y1);
   const fill = app.fillShapes ? app.color2 : null;
   if (tool === 'rect') {
-    if (fill) {
-      ctx.fillStyle = fill;
-      ctx.fillRect(l, t, r - l + 1, b - t + 1);
-    }
+    if (fill) paintRect(ctx, l, t, r - l + 1, b - t + 1, fill);
     const st = (a, c) => stamp(ctx, a, c, false, color);
     bresenham(l, t, r, t, st);
     bresenham(r, t, r, b, st);
@@ -159,10 +166,7 @@ function pixelShape(ctx, tool, x0, y0, x1, y1, color) {
       if (!inside(px, py)) continue;
       const edge = !inside(px - 1, py) || !inside(px + 1, py) || !inside(px, py - 1) || !inside(px, py + 1);
       if (edge) stamp(ctx, px, py, false, color);
-      else if (fill) {
-        ctx.fillStyle = fill;
-        ctx.fillRect(px, py, 1, 1);
-      }
+      else if (fill) paintRect(ctx, px, py, 1, 1, fill);
     }
   }
 }
@@ -235,7 +239,7 @@ function pixelDown(p, e) {
   }
   if (tool === 'bucket') {
     if (x < 0 || y < 0 || x >= W() || y >= H()) return null;
-    floodFill(ctx, x, y, hexToRgba(color));
+    floodFill(ctx, x, y, color === TRANSPARENT ? [0, 0, 0, 0] : hexToRgba(color));
     commitPixel(before, layerId, frameId);
     recentColor(color);
     return null;
@@ -401,7 +405,7 @@ function vectorShapePts(tool, x0, y0, x1, y1) {
 }
 
 function vectorDown(p, e) {
-  const tool = app.tool;
+  let tool = app.tool;
   const alt = e.button === 2;
   const color = alt ? app.color2 : app.color;
   if (tool === 'picker') {
@@ -412,6 +416,8 @@ function vectorDown(p, e) {
   if (!editable()) return null;
   const cel = vcel();
   const before = structuredClone(cel.shapes);
+  // un trait transparent serait invisible : en mode Dessin, le transparent sert de gomme
+  if (color === TRANSPARENT && tool !== 'bucket' && tool !== 'eraser') tool = 'eraser';
 
   if (tool === 'brush') {
     const s = { id: newId(), pts: [[R2(p.x), R2(p.y)]], smooth: false, closed: false, stroke: color, width: app.vectorSize, fill: null };
@@ -454,7 +460,7 @@ function vectorDown(p, e) {
       const s = cel.shapes[i];
       if (s.img || s.pts.length < 3) continue;
       if (hctx.isPointInPath(shapePath(s), p.x, p.y)) {
-        s.fill = color;
+        s.fill = color === TRANSPARENT ? null : color; // transparent = enlever le remplissage
         commitVector(before);
         recentColor(color);
         return null;
@@ -467,7 +473,7 @@ function vectorDown(p, e) {
   p = { x: snapV(p.x), y: snapV(p.y) };
   const s = {
     id: newId(), pts: [], smooth: tool === 'ellipse', closed: tool !== 'line',
-    stroke: color, width: app.vectorSize, fill: app.fillShapes && tool !== 'line' ? app.color2 : null,
+    stroke: color, width: app.vectorSize, fill: app.fillShapes && tool !== 'line' && app.color2 !== TRANSPARENT ? app.color2 : null,
   };
   cel.shapes.push(s);
   const upd = (q, ev) => {
@@ -562,6 +568,7 @@ export function applyToSelection(prop, value) {
   if (app.mode !== 'vector' || app.tool !== 'select' || !app.vsel.size || curLayer().locked) return;
   const cel = vcel();
   const before = structuredClone(cel.shapes);
+  if (value === TRANSPARENT) return; // un trait transparent rendrait la forme invisible
   for (const s of cel.shapes) if (app.vsel.has(s.id) && !s.img) s[prop] = value;
   commitVector(before);
   requestRender();
@@ -787,7 +794,7 @@ export function drawToolOverlay(ctx, z, ox, oy) {
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'rgba(0,0,0,.7)';
       ctx.strokeRect(rx - 1, ry - 1, rw + 2, rw + 2);
-      ctx.strokeStyle = app.tool === 'eraser' ? '#fff' : accent;
+      ctx.strokeStyle = app.tool === 'eraser' || app.color === TRANSPARENT ? '#fff' : accent;
       ctx.strokeRect(rx, ry, rw, rw);
     }
     return;
@@ -828,7 +835,7 @@ export function drawToolOverlay(ctx, z, ox, oy) {
     ctx.beginPath();
     ctx.arc(X(app.hover.x), Y(app.hover.y), r + 1, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.strokeStyle = app.tool === 'eraser' ? '#fff' : accent;
+    ctx.strokeStyle = app.tool === 'eraser' || app.color === TRANSPARENT ? '#fff' : accent;
     ctx.beginPath();
     ctx.arc(X(app.hover.x), Y(app.hover.y), r, 0, Math.PI * 2);
     ctx.stroke();

@@ -12,7 +12,7 @@ import { clearRecovery } from './recovery.js';
 
 // ------------------------------------------------------------ Couleurs
 export function setColor(hex, secondary = false) {
-  hex = normalizeHex(hex);
+  hex = hex === 'transparent' ? 'transparent' : normalizeHex(hex);
   if (!hex) return;
   if (secondary) app.color2 = hex;
   else {

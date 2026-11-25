@@ -22,9 +22,10 @@ function renderToolbar() {
 
 // ---------------------------------------------------------- Panneau de droite
 function swatch(hex, extraCls = '') {
-  const s = el('button', 'sw' + (hex === app.color ? ' sel' : '') + extraCls);
-  s.style.background = hex;
-  s.title = hex + ' — clic : couleur 1, clic droit : couleur 2';
+  const transp = hex === 'transparent';
+  const s = el('button', 'sw' + (hex === app.color ? ' sel' : '') + (transp ? ' is-transparent' : '') + extraCls);
+  if (!transp) s.style.background = hex;
+  s.title = (transp ? 'Transparent (efface)' : hex) + ' — clic : couleur 1, clic droit : couleur 2';
   s.onclick = () => A.setColor(hex);
   s.oncontextmenu = (e) => {
     e.preventDefault();
@@ -48,12 +49,12 @@ function renderPanel() {
 
   // Couleurs
   const hex = el('input', 'hex');
-  hex.value = app.color;
+  hex.value = app.color === 'transparent' ? 'Transparent' : app.color;
   hex.spellcheck = false;
   hex.onchange = () => {
-    const v = normalizeHex(hex.value);
+    const v = /^transp/i.test(hex.value.trim()) ? 'transparent' : normalizeHex(hex.value);
     if (v) A.setColor(v);
-    else hex.value = app.color;
+    else hex.value = app.color === 'transparent' ? 'Transparent' : app.color;
   };
   const row = el('div', 'color-row');
   row.append(colorPair(), stack(el('span', 'muted', 'Hex'), hex));
@@ -61,6 +62,7 @@ function renderPanel() {
 
   // Palette
   const pal = el('div', 'swatches');
+  pal.appendChild(swatch('transparent')); // toujours en premier : peindre avec = effacer
   for (const c of app.palette) {
     const s = swatch(c);
     s.addEventListener('auxclick', (e) => {

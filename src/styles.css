@@ -471,3 +471,13 @@ body.resizing.h { cursor: row-resize !important; }
 .si-color input[type='color'] { width: 34px; height: 26px; padding: 1px; }
 .si-color input[type='color']:disabled { opacity: 0.3; }
 .si-opts { display: grid; grid-template-columns: 1fr 200px; gap: 12px; }
+
+/* ------------------------------------------------ Couleur transparente */
+.is-transparent {
+  background-color: #2a3040 !important;
+  background-image:
+    linear-gradient(45deg, #586178 25%, transparent 25%, transparent 75%, #586178 75%),
+    linear-gradient(45deg, #586178 25%, transparent 25%, transparent 75%, #586178 75%) !important;
+  background-size: 8px 8px !important;
+  background-position: 0 0, 4px 4px !important;
+}
