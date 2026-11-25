@@ -17,6 +17,7 @@ import { initRecovery, checkRecovery } from './recovery.js';
 import { importSpriteScript } from './sprites.js';
 import { initDiscord } from './discord.js';
 import { initMcp } from './mcp.js';
+import { showExportDialog } from './exportdialog.js';
 
 // Glisser-déposer : un .js ou .json de sprites, ou un projet .animo
 document.addEventListener('dragover', (e) => e.preventDefault());
@@ -144,7 +145,7 @@ window.addEventListener('keydown', (e) => {
   if (mod) {
     const map = {
       z: () => (e.shiftKey ? redo() : undo()), y: redo,
-      s: () => A.saveProject(e.shiftKey), o: () => A.openProject(), n: A.newProject,
+      s: () => A.saveProject(e.shiftKey), o: () => A.openProject(), n: A.newProject, e: () => showExportDialog(),
       c: () => Tl.copySel(), x: Tl.cutSel, v: Tl.paste, a: Tl.selectAll, d: Tl.deselect,
       g: () => A.toggle('showGrid'), r: () => A.toggle('showRulers'),
       '=': () => zoomStep(1), '+': () => zoomStep(1), '-': () => zoomStep(-1), '0': fitView, '1': () => setZoom(1),

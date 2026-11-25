@@ -26,7 +26,7 @@ const SHORTCUTS = [
   ['Vue & fichiers', [
     ['Molette', 'Zoom'], ['Espace + glisser / clic molette', 'Se déplacer'], ['Ctrl+0', 'Ajuster à l’écran'], ['Ctrl+1', 'Zoom 100 %'],
     ['Ctrl+G', 'Grille'], ['Ctrl+R', 'Règles'], ['F11', 'Plein écran'], ['Ctrl+N / O / S', 'Nouveau / ouvrir / enregistrer'],
-    ['Ctrl+Maj+S', 'Enregistrer sous'], ['F1', 'Cette aide'],
+    ['Ctrl+Maj+S', 'Enregistrer sous'], ['Ctrl+E', 'Exporter (GIF, vidéo, PNG…)'], ['F1', 'Cette aide'],
   ]],
 ];
 

@@ -2,7 +2,6 @@ import { app, on, curLayer, store, refreshUI } from './state.js';
 import { el, escapeHtml, baseName } from './util.js';
 import { icon } from './icons.js';
 import * as A from './actions.js';
-import * as X from './export.js';
 import * as Tl from './tools.js';
 import { undo, redo, canUndo, canRedo } from './history.js';
 import { zoomStep, fitView, setZoom, requestRender, gridStep } from './view.js';
@@ -28,6 +27,7 @@ import { checkForUpdate } from './update.js';
 import { importSpriteScript } from './sprites.js';
 import { discordSettings, setDiscord, discordAvailable } from './discord.js';
 import { showMcpSetup } from './mcp.js';
+import { showExportDialog } from './exportdialog.js';
 import { layout, toggleLayout, setUiScale, resetLayout } from './layout.js';
 
 const TABS = [
@@ -141,7 +141,7 @@ function groups(tab) {
           return box;
         })] },
         { title: 'Importer', items: [B('image', 'Image', A.importImage), B('sheet', 'Spritesheet', A.importSpritesheet), B('wand', 'Depuis Claude', showClaudeHelp, { tip: 'Coller une animation créée par Claude' }), B('code', 'Script .js', () => importSpriteScript(), { tip: 'Sprites décrits en texte, ex. ["..##..", ".####."] — ou glisse le fichier sur la fenêtre' })] },
-        { title: 'Exporter', items: [B('export', 'Frame PNG', X.exportPNG), B('gif', 'GIF animé', X.exportGIF)] },
+        { title: 'Exporter', items: [B('export', 'Exporter…', () => showExportDialog(), { tip: 'Ctrl+E' }), B('gif', 'GIF animé', () => showExportDialog('gif'))] },
       ];
     case 'accueil':
       return [
@@ -274,31 +274,15 @@ function groups(tab) {
           )),
         ] },
       ];
-    case 'rendu': {
-      const scales = isPixel ? [1, 2, 4, 8, 16, 32] : [0.25, 0.5, 1, 2];
-      const d = app.doc;
+    case 'rendu':
       return [
-        { title: 'Animation', items: [
-          B('gif', 'GIF animé', X.exportGIF), B('film', 'Vidéo WebM', () => X.exportVideo('webm')), B('film', 'Vidéo MP4', () => X.exportVideo('mp4')),
+        { title: 'Exporter', items: [
+          B('export', 'Exporter…', () => showExportDialog(), { tip: 'Ctrl+E — toutes les options d’export' }),
+          B('gif', 'GIF animé', () => showExportDialog('gif')), B('film', 'Vidéo', () => showExportDialog('video')),
+          B('image', 'Image PNG', () => showExportDialog('png')), B('zip', 'Frames (.zip)', () => showExportDialog('zip')),
+          B('sheet', 'Spritesheet', () => showExportDialog('sheet')),
         ] },
-        { title: 'Images', items: [
-          B('zip', 'Séquence PNG', X.exportSequence), B('sheet', 'Spritesheet', X.exportSpritesheet), B('export', 'Frame PNG', X.exportPNG),
-        ] },
-        { title: 'Options de rendu', items: [N(() => stack(
-          field('Échelle', select(scales.map((s) => [s, `×${s} — ${Math.round(d.width * s)} × ${Math.round(d.height * s)} px`]), app.render.scale, (v) => { app.render.scale = Number(v); })),
-          check('Boucle infinie (GIF)', app.render.gifLoop, (v) => { app.render.gifLoop = v; }),
-        )), N(() => {
-          const c = el('input');
-          c.type = 'color';
-          c.value = app.render.bg;
-          c.onchange = () => { app.render.bg = c.value; };
-          return stack(
-            check('Fond transparent', app.render.transparent, (v) => { app.render.transparent = v; rr(); }),
-            field('Couleur de fond', c),
-          );
-        })] },
       ];
-    }
     case 'presets':
       return [
         { title: 'Canevas', items: [
@@ -424,6 +408,15 @@ function renderTabs() {
   bar.appendChild(indicator);
   const animate = slideDir !== 0;
   requestAnimationFrame(() => moveIndicator(animate));
+  let xb = document.getElementById('exportTop');
+  if (!xb) {
+    xb = el('button', 'export-top', icon('export', 15) + '<span>Exporter</span>');
+    xb.id = 'exportTop';
+    xb.title = 'Exporter en GIF, vidéo, PNG… (Ctrl+E)';
+    xb.onclick = () => showExportDialog();
+    document.getElementById('tabs').insertBefore(xb, document.querySelector('.ribbon-toggle'));
+  }
+  xb.style.display = app.doc ? '' : 'none';
   const badge = document.getElementById('modeBadge');
   if (app.doc) badge.innerHTML = `${icon(app.mode === 'pixel' ? 'pixel' : 'brush', 14)} ${app.mode === 'pixel' ? 'Pixel art' : 'Dessin vectoriel'} · ${app.doc.width} × ${app.doc.height}`;
 }
