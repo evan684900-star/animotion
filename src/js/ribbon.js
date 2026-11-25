@@ -304,6 +304,21 @@ function groups(tab) {
   return [];
 }
 
+const TAB_IDS = TABS.map((t) => t[0]);
+let slideDir = 0; // -1 : vers la gauche, +1 : vers la droite
+let indicator = null;
+
+function moveIndicator(animate) {
+  const bar = document.getElementById('tabbar');
+  const btn = bar.querySelector('.tab.active');
+  if (!btn || !indicator) return;
+  indicator.style.transition = animate ? '' : 'none';
+  indicator.style.transform = `translateX(${btn.offsetLeft + 12}px)`;
+  indicator.style.width = Math.max(0, btn.offsetWidth - 24) + 'px';
+  if (!animate) void indicator.offsetWidth;
+  indicator.style.transition = '';
+}
+
 function renderTabs() {
   const bar = document.getElementById('tabbar');
   bar.innerHTML = '';
@@ -311,6 +326,7 @@ function renderTabs() {
     const b = el('button', 'tab' + (id === current ? ' active' : '') + (id === 'fichier' ? ' file' : ''), label);
     b.onclick = () => {
       if (current === id && layout.ribbon) return;
+      slideDir = Math.sign(TAB_IDS.indexOf(id) - TAB_IDS.indexOf(current));
       current = id;
       store('tab', id);
       if (!layout.ribbon) toggleLayout('ribbon');
@@ -319,6 +335,11 @@ function renderTabs() {
     b.ondblclick = () => toggleLayout('ribbon');
     bar.appendChild(b);
   }
+  // barre bleue qui glisse d'un onglet à l'autre
+  if (!indicator) indicator = el('div', 'tab-indicator');
+  bar.appendChild(indicator);
+  const animate = slideDir !== 0;
+  requestAnimationFrame(() => moveIndicator(animate));
   const badge = document.getElementById('modeBadge');
   if (app.doc) badge.innerHTML = `${icon(app.mode === 'pixel' ? 'pixel' : 'brush', 14)} ${app.mode === 'pixel' ? 'Pixel art' : 'Dessin vectoriel'} · ${app.doc.width} × ${app.doc.height}`;
 }
@@ -328,6 +349,12 @@ function render() {
   const body = document.getElementById('ribbonBody');
   const scroll = body.scrollLeft;
   body.innerHTML = '';
+  body.classList.remove('slide-left', 'slide-right');
+  if (slideDir) {
+    void body.offsetWidth;
+    body.classList.add(slideDir > 0 ? 'slide-right' : 'slide-left');
+    slideDir = 0;
+  }
   if (!app.doc) return;
   for (const g of groups(current)) {
     const ge = el('div', 'rgroup');
@@ -351,5 +378,6 @@ function render() {
 
 export function initRibbon() {
   on('ui', render);
+  window.addEventListener('resize', () => moveIndicator(false));
   render();
 }
