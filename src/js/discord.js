@@ -5,7 +5,7 @@ import { toast } from './dialogs.js';
 
 // Identifiant de l'application Discord (Discord Developer Portal → Applications → Application ID).
 // Ce n'est pas un secret : il est visible par tous ceux qui voient le statut.
-export const DISCORD_APP_ID = '';
+export const DISCORD_APP_ID = '1575178314409050132';
 
 const IMAGE = 'https://raw.githubusercontent.com/evan684900-star/animotion/main/src-tauri/icons/128x128@2x.png';
 const BUTTON = ['Télécharger Animotion', 'https://github.com/evan684900-star/animotion/releases/latest'];
