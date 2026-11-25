@@ -1,5 +1,5 @@
 import { app, on, emit, store, refreshUI } from './state.js';
-import { resizeViewport, zoomStep, fitView, setZoom, requestRender, screenToDoc } from './view.js';
+import { resizeViewport, zoomStep, fitView, setZoom, requestRender, screenToDoc, toLocal } from './view.js';
 import * as Tl from './tools.js';
 import * as A from './actions.js';
 import { undo, redo } from './history.js';
@@ -57,7 +57,8 @@ vp.addEventListener('pointerdown', (e) => {
   if (!app.doc) return;
   vp.setPointerCapture(e.pointerId);
   if (e.button === 1 || spaceDown || (app.tool === 'hand' && e.button === 0)) {
-    pan = { x: e.clientX, y: e.clientY, px: app.panX, py: app.panY };
+    const l0 = toLocal(e.clientX, e.clientY);
+    pan = { x: l0.x, y: l0.y, px: app.panX, py: app.panY };
     vp.style.cursor = 'grabbing';
     e.preventDefault();
     return;
@@ -69,8 +70,9 @@ vp.addEventListener('pointerdown', (e) => {
 vp.addEventListener('pointermove', (e) => {
   if (!app.doc) return;
   if (pan) {
-    app.panX = pan.px + e.clientX - pan.x;
-    app.panY = pan.py + e.clientY - pan.y;
+    const l = toLocal(e.clientX, e.clientY);
+    app.panX = pan.px + l.x - pan.x;
+    app.panY = pan.py + l.y - pan.y;
     if (app.mode === 'pixel') {
       app.panX = Math.round(app.panX);
       app.panY = Math.round(app.panY);
@@ -109,7 +111,8 @@ vp.addEventListener('wheel', (e) => {
     requestRender();
     return;
   }
-  zoomStep(e.deltaY < 0 ? 1 : -1, e.clientX - r.left, e.clientY - r.top);
+  const l = toLocal(e.clientX, e.clientY);
+  zoomStep(e.deltaY < 0 ? 1 : -1, l.x, l.y);
 }, { passive: false });
 
 // ------------------------------------------------------------ Clavier

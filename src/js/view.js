@@ -13,16 +13,33 @@ setImageLoadCallback(() => requestRender());
 
 export const viewSize = () => ({ w: W, h: H });
 
-export function screenToDoc(clientX, clientY) {
+// Quand l'interface est agrandie/réduite (zoom CSS), la taille affichée à l'écran (getBoundingClientRect)
+// diffère de la taille de mise en page (clientWidth). k = affiché / mise en page. Tous les calculs
+// (pan, zoom, dessin) se font en unités de mise en page ; on convertit la souris avec k.
+function zoomRatio() {
   const r = vp.getBoundingClientRect();
-  return { x: (clientX - r.left - app.panX) / app.zoom, y: (clientY - r.top - app.panY) / app.zoom };
+  const k = vp.clientWidth ? r.width / vp.clientWidth : 1;
+  return { r, k: k > 0 && Number.isFinite(k) ? k : 1 };
+}
+
+/** Position de la souris dans la zone de dessin (unités de mise en page) */
+export function toLocal(clientX, clientY) {
+  const { r, k } = zoomRatio();
+  return { x: (clientX - r.left) / k, y: (clientY - r.top) / k, k };
+}
+
+export function screenToDoc(clientX, clientY) {
+  const l = toLocal(clientX, clientY);
+  return { x: (l.x - app.panX) / app.zoom, y: (l.y - app.panY) / app.zoom };
 }
 
 export function resizeViewport() {
-  const r = vp.parentElement.getBoundingClientRect();
-  dpr = window.devicePixelRatio || 1;
-  W = r.width;
-  H = r.height;
+  const wrap = vp.parentElement;
+  const r = wrap.getBoundingClientRect();
+  W = wrap.clientWidth || r.width;
+  H = wrap.clientHeight || r.height;
+  // pixels réels de l'écran par unité de mise en page (inclut le zoom CSS de l'interface)
+  dpr = (window.devicePixelRatio || 1) * (W ? r.width / W : 1);
   vp.width = Math.max(1, Math.round(W * dpr));
   vp.height = Math.max(1, Math.round(H * dpr));
   for (const [c, w, h] of [[rulerTop, W, 20], [rulerLeft, 20, H]]) {
