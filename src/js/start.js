@@ -26,10 +26,8 @@ function drawBeam() {
   const gw = r.width;
   const L1 = r.left + gw * 0.17, R1 = r.right - gw * 0.17; // resserrement au niveau du haut des cartes
   const L2 = r.left + gw * 0.27, R2 = r.right - gw * 0.27; // colonne sous les cartes
-  const pts = [[0, 0], [W, 0], [R1, top], [R2, bottom], [R2, H], [L2, H], [L2, bottom], [L1, top]];
+  const pts = [[-W * 0.12, -260], [W * 1.12, -260], [R1, top], [R2, bottom], [R2, H], [L2, H], [L2, bottom], [L1, top]];
   const poly = pts.map((p) => p.map(Math.round).join(',')).join(' ');
-  const edgeL = `M0,0 L${L1},${top} L${L2},${bottom} L${L2},${H}`;
-  const edgeR = `M${W},0 L${R1},${top} L${R2},${bottom} L${R2},${H}`;
   if (!svg) {
     svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.classList.add('start-beam');
@@ -41,25 +39,13 @@ function drawBeam() {
   svg.innerHTML = `
     <defs>
       <linearGradient id="beamFill" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="var(--accent)" stop-opacity=".16"/>
-        <stop offset="${(top / H).toFixed(3)}" stop-color="var(--accent)" stop-opacity=".09"/>
+        <stop offset="0" stop-color="var(--accent)" stop-opacity=".24"/>
+        <stop offset="${(top / H).toFixed(3)}" stop-color="var(--accent)" stop-opacity=".11"/>
         <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
       </linearGradient>
-      <linearGradient id="beamEdge" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="var(--accent)" stop-opacity=".9"/>
-        <stop offset="${(bottom / H).toFixed(3)}" stop-color="var(--accent)" stop-opacity=".45"/>
-        <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
-      </linearGradient>
-      <filter id="beamSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="28"/></filter>
-      <filter id="beamGlow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>
+      <filter id="beamSoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="55"/></filter>
     </defs>
-    <polygon points="${poly}" fill="url(#beamFill)" filter="url(#beamSoft)"/>
-    <g fill="none" stroke="url(#beamEdge)" stroke-linejoin="round">
-      <path d="${edgeL}" stroke-width="10" opacity=".35" filter="url(#beamGlow)"/>
-      <path d="${edgeR}" stroke-width="10" opacity=".35" filter="url(#beamGlow)"/>
-      <path d="${edgeL}" stroke-width="1.5" opacity=".7"/>
-      <path d="${edgeR}" stroke-width="1.5" opacity=".7"/>
-    </g>`;
+    <polygon points="${poly}" fill="url(#beamFill)" filter="url(#beamSoft)"/>`;
 }
 window.addEventListener('resize', () => requestAnimationFrame(drawBeam));
 
