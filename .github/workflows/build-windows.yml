@@ -69,21 +69,26 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        # GitHub répond parfois « 504 » : on réessaie, et on complète une release créée à moitié
+        # GitHub répond parfois 500/504 : on publie en petites étapes, chacune réessayée plusieurs fois
         run: |
           TAG="v$VERSION"
-          for i in 1 2 3 4; do
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              gh release upload "$TAG" dist-exe/Animotion.exe dist-exe/Animotion-installateur.exe --clobber \
-                && gh release edit "$TAG" --latest --notes-file notes.md && exit 0
-            else
-              gh release create "$TAG" dist-exe/Animotion.exe dist-exe/Animotion-installateur.exe \
-                --target "${{ github.sha }}" --title "Animotion $VERSION" --notes-file notes.md --latest && exit 0
-            fi
-            echo "Échec de la tentative $i, nouvel essai dans $((i * 20)) s…"
-            sleep $((i * 20))
-          done
-          exit 1
+          retry() {
+            for i in 1 2 3 4 5; do
+              "$@" && return 0
+              echo "Échec de la tentative $i, nouvel essai dans $((i * 15)) s…"
+              sleep $((i * 15))
+            done
+            return 1
+          }
+          # brouillons laissés par d'anciens essais ratés
+          gh release list --limit 50 --json tagName,isDraft --jq '.[] | select(.isDraft) | .tagName' |
+            while read -r t; do gh release delete "$t" --yes || true; done
+          # 1. la release (sans fichiers), 2. les .exe un par un, 3. publication
+          gh release view "$TAG" >/dev/null 2>&1 ||
+            retry gh release create "$TAG" --target "${{ github.sha }}" --title "Animotion $VERSION" --notes-file notes.md --latest
+          retry gh release upload "$TAG" dist-exe/Animotion.exe --clobber
+          retry gh release upload "$TAG" dist-exe/Animotion-installateur.exe --clobber
+          retry gh release edit "$TAG" --draft=false --latest
 
       # On ne garde que les 3 dernières releases pour que la liste reste simple
       - name: Nettoyer les anciennes releases
