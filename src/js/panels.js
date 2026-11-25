@@ -151,7 +151,7 @@ export function renderStatus() {
     <span>Curseur ${pos}</span>
     <span>Frame ${app.frameIndex + 1}/${app.doc.frames.length}</span>
     <span class="grow"></span>
-    <span>${app.dirty ? '● Non enregistré' : ''}</span>`;
+    <span>${app.dirty ? '● Non enregistré' + (app.lastBackup ? ` · copie de secours ${app.lastBackup.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : '') : ''}</span>`;
 }
 
 export function initPanels() {

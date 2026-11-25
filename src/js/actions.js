@@ -8,6 +8,7 @@ import { saveFile, openFile, readPath, isTauri, setWindowTitle } from './platfor
 import { ctx2d, makeCanvas, loadImage, bytesToDataURL, mimeFromName, baseName, normalizeHex } from './util.js';
 import { PALETTES, SIZE_PRESETS } from './palettes.js';
 import { showStart, hideStart } from './start.js';
+import { clearRecovery } from './recovery.js';
 
 // ------------------------------------------------------------ Couleurs
 export function setColor(hex, secondary = false) {
@@ -303,7 +304,21 @@ export function createProject(mode, w, h, fps) {
 
 async function confirmLoseChanges() {
   if (!app.doc || !app.dirty) return true;
-  return confirmDialog('Modifications non enregistrées', 'Ton projet actuel a des modifications non enregistrées. Continuer quand même ?', 'Continuer sans enregistrer', true);
+  const c = await modal({
+    title: 'Modifications non enregistrées',
+    content: `<p>Le projet <b>${app.fileName.replace(/[<>&]/g, '')}</b> a des modifications non enregistrées.</p>`,
+    buttons: [
+      { label: 'Annuler', value: null },
+      { label: 'Ne pas enregistrer', value: 'discard', danger: true },
+      { label: 'Enregistrer', value: 'save', primary: true },
+    ],
+  });
+  if (c === 'save') return saveProject();
+  if (c === 'discard') {
+    await clearRecovery();
+    return true;
+  }
+  return false;
 }
 
 export async function newProject() {
@@ -324,6 +339,7 @@ export async function saveProject(as = false) {
     }
     app.fileName = baseName(path).replace(/\.animo$/i, '');
     app.dirty = false;
+    await clearRecovery();
     updateTitle();
     refreshUI();
     toast('Projet enregistré 💾', 'ok');

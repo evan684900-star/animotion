@@ -105,10 +105,82 @@ async fn install_update(app: tauri::AppHandle, url: String) -> Result<(), String
     }
 }
 
+// ------------------------------------------------------------------ Copie de secours
+// Le projet en cours est recopié régulièrement dans le dossier de données de l'appli,
+// pour pouvoir le récupérer après un plantage de l'appli ou du PC.
+
+fn recovery_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    use tauri::Manager;
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("secours");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+/// Écriture "atomique" : fichier temporaire + vidage sur disque + renommage.
+/// Une coupure de courant en plein milieu ne peut pas abîmer l'ancienne copie.
+fn write_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+    let tmp = path.with_extension("tmp");
+    let mut f = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
+    f.write_all(data).map_err(|e| e.to_string())?;
+    f.sync_all().map_err(|e| e.to_string())?;
+    drop(f);
+    std::fs::rename(&tmp, path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn recovery_write(app: tauri::AppHandle, request: Request<'_>) -> Result<(), String> {
+    let meta = request
+        .headers()
+        .get("x-meta")
+        .and_then(|v| v.to_str().ok())
+        .map(percent_decode)
+        .unwrap_or_else(|| "{}".into());
+    let dir = recovery_dir(&app)?;
+    match request.body() {
+        InvokeBody::Raw(bytes) => {
+            write_atomic(&dir.join("projet.animo"), bytes)?;
+            write_atomic(&dir.join("infos.json"), meta.as_bytes())
+        }
+        _ => Err("contenu invalide".into()),
+    }
+}
+
+#[tauri::command]
+fn recovery_meta(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let dir = recovery_dir(&app)?;
+    if !dir.join("projet.animo").exists() {
+        return Ok(None);
+    }
+    Ok(std::fs::read_to_string(dir.join("infos.json")).ok())
+}
+
+#[tauri::command]
+fn recovery_read(app: tauri::AppHandle) -> Result<Response, String> {
+    let dir = recovery_dir(&app)?;
+    std::fs::read(dir.join("projet.animo")).map(Response::new).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn recovery_clear(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = recovery_dir(&app)?;
+    let _ = std::fs::remove_file(dir.join("projet.animo"));
+    let _ = std::fs::remove_file(dir.join("infos.json"));
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![write_file, read_file, install_update])
+        .invoke_handler(tauri::generate_handler![
+            write_file,
+            read_file,
+            install_update,
+            recovery_write,
+            recovery_meta,
+            recovery_read,
+            recovery_clear
+        ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement d'Animotion");
 }

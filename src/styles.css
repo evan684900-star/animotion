@@ -446,3 +446,10 @@ body.resizing.h { cursor: row-resize !important; }
 .whatsnew h4 { margin: 6px 0 4px; font-size: 13.5px; }
 .whatsnew ul { margin: 0 0 4px; padding-left: 18px; color: var(--muted); }
 .whatsnew li { margin: 2px 0; }
+
+/* ------------------------------------------------ Récupération */
+.recover-card {
+  display: flex; flex-direction: column; gap: 3px; margin-top: 10px; padding: 10px 12px;
+  background: var(--bg); border: 1px solid var(--border2); border-left: 3px solid var(--accent); border-radius: 8px;
+}
+.recover-card span { color: var(--muted); font-size: 12px; }

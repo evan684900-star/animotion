@@ -35,6 +35,7 @@ export const app = {
   paletteName: 'Animotion',
   render: { scale: 1, transparent: true, bg: '#000000', gifLoop: true },
   accent: '#2f8cff',
+  lastBackup: null, // heure de la dernière copie de secours
 };
 
 // Petit bus d'événements
@@ -69,6 +70,7 @@ export function markDirty() {
     app.dirty = true;
     emit('title');
   }
+  emit('changed'); // déclenche la copie de secours
 }
 
 export function store(key, value) {

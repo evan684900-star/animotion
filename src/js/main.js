@@ -13,6 +13,7 @@ import { toggleFullscreen } from './platform.js';
 import { LOGO } from './icons.js';
 import { initLayout, toggleLayout, setUiScale, layout } from './layout.js';
 import { checkForUpdate, showWhatsNew } from './update.js';
+import { initRecovery, checkRecovery } from './recovery.js';
 
 document.querySelector('.brand-logo').innerHTML = LOGO;
 
@@ -20,6 +21,7 @@ const accent = store('accent');
 if (accent) A.setAccent(accent);
 
 initLayout();
+initRecovery();
 initRibbon();
 initPanels();
 initTimeline();
@@ -187,8 +189,15 @@ document.addEventListener('contextmenu', (e) => {
 resizeViewport();
 showStart();
 emit('ui');
-if (!store('tutoDone')) setTimeout(showTutorial, 400);
-else setTimeout(async () => (await showWhatsNew()) || checkForUpdate(true), 1200);
+// Au démarrage : d'abord récupérer un éventuel dessin perdu, puis tutoriel ou nouveautés / mise à jour
+setTimeout(async () => {
+  const recovered = await checkRecovery();
+  if (!store('tutoDone')) {
+    if (!recovered) await showTutorial();
+    return;
+  }
+  if (!(await showWhatsNew())) checkForUpdate(true);
+}, 500);
 
 // accès debug / tests
 window.__animotion = { app, A, Tl };
