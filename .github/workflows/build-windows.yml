@@ -1,0 +1,61 @@
+name: Build Windows (.exe)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-windows
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Compiler Animotion
+        run: npx tauri build
+
+      - name: Rassembler les .exe
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist-exe | Out-Null
+          Copy-Item src-tauri/target/release/animotion.exe dist-exe/Animotion-portable.exe
+          Copy-Item src-tauri/target/release/bundle/nsis/*.exe dist-exe/
+          Get-ChildItem dist-exe | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Animotion-Windows
+          path: dist-exe/*
+
+      - name: Publier la release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: Animotion 0.1.${{ github.run_number }}
+          body: |
+            Version automatique compilée depuis `main`.
+            - **Animotion-portable.exe** : se lance directement, sans installation.
+            - **Animotion_…_x64-setup.exe** : installeur classique (raccourci dans le menu Démarrer).
+          files: dist-exe/*
+          make_latest: true

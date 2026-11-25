@@ -1,0 +1,336 @@
+import { app, on, curLayer, store, refreshUI } from './state.js';
+import { el, escapeHtml, baseName } from './util.js';
+import { icon } from './icons.js';
+import * as A from './actions.js';
+import * as X from './export.js';
+import * as Tl from './tools.js';
+import { undo, redo, canUndo, canRedo } from './history.js';
+import { zoomStep, fitView, setZoom, requestRender } from './view.js';
+const rr = () => { requestRender(); refreshUI(); };
+import { PALETTES, ACCENTS } from './palettes.js';
+import { toggleFullscreen, isTauri } from './platform.js';
+import { showShortcuts, showTutorial, showAbout } from './help.js';
+
+const TABS = [
+  ['fichier', 'Fichier'], ['accueil', 'Accueil'], ['calques', 'Calques'], ['animation', 'Animation'],
+  ['rendu', 'Rendu'], ['presets', 'Presets'], ['affichage', 'Affichage'], ['aide', 'Aide'],
+];
+let current = store('tab') || 'accueil';
+
+const B = (ic, label, act, o = {}) => ({ type: 'btn', icon: ic, label, act, ...o });
+const N = (fn) => ({ type: 'node', fn });
+
+function field(label, input) {
+  const w = el('label', 'rfield');
+  w.append(el('span', null, escapeHtml(label)), input);
+  return w;
+}
+function select(options, value, onchange) {
+  const s = el('select');
+  for (const [v, l] of options) {
+    const o = el('option', null, escapeHtml(l));
+    o.value = v;
+    if (String(v) === String(value)) o.selected = true;
+    s.appendChild(o);
+  }
+  s.onchange = () => onchange(s.value);
+  return s;
+}
+function number(value, min, max, onchange, step = 1) {
+  const i = el('input');
+  Object.assign(i, { type: 'number', value, min, max, step });
+  i.onchange = () => onchange(Number(i.value));
+  return i;
+}
+function check(label, value, onchange) {
+  const w = el('label', 'rcheck');
+  const i = el('input');
+  i.type = 'checkbox';
+  i.checked = value;
+  i.onchange = () => onchange(i.checked);
+  w.append(i, el('span', null, escapeHtml(label)));
+  return w;
+}
+function stack(...nodes) {
+  const s = el('div', 'rstack');
+  s.append(...nodes);
+  return s;
+}
+
+export function sizeControl() {
+  const isPixel = app.mode === 'pixel';
+  const v = isPixel ? app.pixelSize : app.vectorSize;
+  const wrap = el('div', 'size-ctl');
+  const r = el('input');
+  Object.assign(r, { type: 'range', min: isPixel ? 1 : 0.5, max: isPixel ? 16 : 80, step: isPixel ? 1 : 0.5, value: v });
+  const n = el('input');
+  Object.assign(n, { type: 'number', min: isPixel ? 1 : 0.5, max: isPixel ? 64 : 200, step: isPixel ? 1 : 0.5, value: v });
+  r.oninput = () => {
+    A.setSize(Number(r.value));
+    n.value = r.value;
+  };
+  n.onchange = () => {
+    A.setSize(Number(n.value));
+    r.value = n.value;
+  };
+  wrap.append(r, n, el('span', 'unit', 'px'));
+  return wrap;
+}
+
+export function colorPair() {
+  const w = el('div', 'colorpair');
+  const mk = (cls, val, sec) => {
+    const lab = el('label', cls);
+    lab.style.background = val;
+    lab.title = sec ? 'Couleur secondaire (clic droit pour dessiner avec)' : 'Couleur principale';
+    const i = el('input');
+    i.type = 'color';
+    i.value = val;
+    i.onchange = () => A.setColor(i.value, sec);
+    lab.appendChild(i);
+    return lab;
+  };
+  const sw = el('button', 'swap-btn', icon('swap', 14));
+  sw.title = 'Inverser les couleurs (X)';
+  sw.onclick = A.swapColors;
+  w.append(mk('cp2', app.color2, true), mk('cp1', app.color, false), sw);
+  return w;
+}
+
+function groups(tab) {
+  const isPixel = app.mode === 'pixel';
+  const layer = curLayer();
+  switch (tab) {
+    case 'fichier':
+      return [
+        { title: 'Projet', items: [
+          B('new', 'Nouveau', A.newProject, { tip: 'Ctrl+N' }), B('open', 'Ouvrir', () => A.openProject(), { tip: 'Ctrl+O' }),
+          B('save', 'Enregistrer', () => A.saveProject(), { tip: 'Ctrl+S' }), B('saveas', 'Enregistrer sous', () => A.saveProject(true), { tip: 'Ctrl+Maj+S' }),
+        ] },
+        { title: 'Récents', items: [N(() => {
+          const list = A.getRecents();
+          const box = el('div', 'recent-list');
+          if (!isTauri) box.appendChild(el('span', 'muted', 'Disponible dans l’appli Windows'));
+          else if (!list.length) box.appendChild(el('span', 'muted', 'Aucun fichier récent'));
+          for (const p of list.slice(0, 4)) {
+            const b = el('button', 'link-btn', icon('recent', 14) + ' ' + escapeHtml(baseName(p)));
+            b.title = p;
+            b.onclick = () => A.openProject(p);
+            box.appendChild(b);
+          }
+          return box;
+        })] },
+        { title: 'Importer', items: [B('image', 'Image', A.importImage), B('sheet', 'Spritesheet', A.importSpritesheet)] },
+        { title: 'Exporter', items: [B('export', 'Frame PNG', X.exportPNG), B('gif', 'GIF animé', X.exportGIF)] },
+      ];
+    case 'accueil':
+      return [
+        { title: 'Outils', items: Tl.toolsFor(app.mode).map((t) => {
+          const d = Tl.TOOL_DEFS[t];
+          return B(d.icon, d.label, () => Tl.setTool(t), { active: app.tool === t, tip: d.key });
+        }) },
+        { title: 'Couleurs', items: [N(colorPair)] },
+        { title: 'Édition', items: [
+          B('undo', 'Annuler', undo, { disabled: !canUndo(), tip: 'Ctrl+Z' }), B('redo', 'Rétablir', redo, { disabled: !canRedo(), tip: 'Ctrl+Y' }),
+          B('copy', 'Copier', () => Tl.copySel(), { tip: 'Ctrl+C' }), B('cut', 'Couper', Tl.cutSel, { tip: 'Ctrl+X' }),
+          B('paste', 'Coller', Tl.paste, { tip: 'Ctrl+V' }), B('trash', 'Supprimer', Tl.deleteSel, { tip: 'Suppr' }),
+        ] },
+        { title: 'Transformer', items: [
+          B('flipH', 'Miroir H', () => Tl.transform('flipH'), { tip: 'H' }), B('flipV', 'Miroir V', () => Tl.transform('flipV'), { tip: 'Maj+H' }),
+          B('rotCW', 'Rotation ↻', () => Tl.transform('rotCW')), B('rotCCW', 'Rotation ↺', () => Tl.transform('rotCCW')),
+        ] },
+        { title: 'Pinceau', items: [N(() => stack(
+          field('Taille', sizeControl()),
+          check('Formes pleines (couleur 2)', app.fillShapes, (v) => { app.fillShapes = v; }),
+          ...(isPixel ? [] : [check('Lissage du trait', app.smoothing, (v) => { app.smoothing = v; })])
+        ))] },
+      ];
+    case 'calques':
+      return [
+        { title: 'Calques', items: [
+          B('layerAdd', 'Nouveau', A.addLayer), B('dup', 'Dupliquer', A.duplicateLayer),
+          B('trash', 'Supprimer', A.deleteLayer, { disabled: app.doc.layers.length < 2 }), B('merge', 'Fusionner ↓', A.mergeDown, { disabled: app.layerIndex === 0 }),
+        ] },
+        { title: 'Ordre', items: [
+          B('up', 'Monter', () => A.moveLayer(1), { disabled: app.layerIndex >= app.doc.layers.length - 1 }),
+          B('down', 'Descendre', () => A.moveLayer(-1), { disabled: app.layerIndex === 0 }),
+        ] },
+        { title: 'Propriétés', items: [
+          B('rename', 'Renommer', () => A.renameLayer()),
+          B(layer.visible ? 'eye' : 'eyeOff', layer.visible ? 'Visible' : 'Masqué', () => A.toggleLayerProp(app.layerIndex, 'visible'), { active: !layer.visible }),
+          B(layer.locked ? 'lock' : 'unlock', layer.locked ? 'Verrouillé' : 'Libre', () => A.toggleLayerProp(app.layerIndex, 'locked'), { active: layer.locked }),
+          N(() => {
+            const r = el('input');
+            Object.assign(r, { type: 'range', min: 0, max: 100, value: Math.round(layer.opacity * 100) });
+            const v = el('span', 'val', Math.round(layer.opacity * 100) + ' %');
+            r.oninput = () => { A.setLayerOpacity(r.value / 100); v.textContent = r.value + ' %'; };
+            r.onchange = () => A.setLayerOpacity(r.value / 100, true);
+            const w = el('div', 'size-ctl');
+            w.append(r, v);
+            return stack(field('Opacité — ' + layer.name, w));
+          }),
+        ] },
+      ];
+    case 'animation':
+      return [
+        { title: 'Frames', items: [
+          B('plus', 'Nouvelle', A.addFrame, { tip: 'N' }), B('dup', 'Dupliquer', A.duplicateFrame, { tip: 'Maj+N' }),
+          B('trash', 'Supprimer', A.deleteFrame, { disabled: app.doc.frames.length < 2 }),
+          B('left', 'Déplacer ←', () => A.moveFrame(-1), { disabled: app.frameIndex === 0 }),
+          B('right', 'Déplacer →', () => A.moveFrame(1), { disabled: app.frameIndex >= app.doc.frames.length - 1 }),
+        ] },
+        { title: 'Lecture', items: [
+          B('first', 'Début', () => A.setFrame(0)), B('prev', 'Préc.', () => A.setFrame(app.frameIndex - 1), { tip: ',' }),
+          B(app.playing ? 'pause' : 'play', app.playing ? 'Pause' : 'Lecture', A.togglePlay, { active: app.playing, tip: 'Entrée' }),
+          B('next', 'Suiv.', () => A.setFrame(app.frameIndex + 1), { tip: '.' }), B('last', 'Fin', () => A.setFrame(app.doc.frames.length - 1)),
+        ] },
+        { title: 'Timing', items: [N(() => stack(
+          field('Images / seconde', number(app.doc.fps, 1, 60, A.setFps)),
+          field('Mode', select([['loop', 'Boucle'], ['pingpong', 'Ping-pong'], ['once', 'Une fois']], app.playMode, (v) => { app.playMode = v; })),
+        )), B('clock', 'Durée frame', () => A.setFrameDuration())] },
+        { title: 'Pelure d’oignon', items: [
+          B('onion', app.onion.enabled ? 'Activée' : 'Désactivée', A.toggleOnion, { active: app.onion.enabled, tip: 'U' }),
+          N(() => stack(
+            field('Frames avant (rouge)', number(app.onion.before, 0, 5, (v) => { app.onion.before = Math.max(0, Math.min(5, v | 0)); rr(); })),
+            field('Frames après (bleu)', number(app.onion.after, 0, 5, (v) => { app.onion.after = Math.max(0, Math.min(5, v | 0)); rr(); })),
+          )),
+        ] },
+      ];
+    case 'rendu': {
+      const scales = isPixel ? [1, 2, 4, 8, 16, 32] : [0.25, 0.5, 1, 2];
+      const d = app.doc;
+      return [
+        { title: 'Animation', items: [
+          B('gif', 'GIF animé', X.exportGIF), B('film', 'Vidéo WebM', () => X.exportVideo('webm')), B('film', 'Vidéo MP4', () => X.exportVideo('mp4')),
+        ] },
+        { title: 'Images', items: [
+          B('zip', 'Séquence PNG', X.exportSequence), B('sheet', 'Spritesheet', X.exportSpritesheet), B('export', 'Frame PNG', X.exportPNG),
+        ] },
+        { title: 'Options de rendu', items: [N(() => stack(
+          field('Échelle', select(scales.map((s) => [s, `×${s} — ${Math.round(d.width * s)} × ${Math.round(d.height * s)} px`]), app.render.scale, (v) => { app.render.scale = Number(v); })),
+          check('Boucle infinie (GIF)', app.render.gifLoop, (v) => { app.render.gifLoop = v; }),
+        )), N(() => {
+          const c = el('input');
+          c.type = 'color';
+          c.value = app.render.bg;
+          c.onchange = () => { app.render.bg = c.value; };
+          return stack(
+            check('Fond transparent', app.render.transparent, (v) => { app.render.transparent = v; rr(); }),
+            field('Couleur de fond', c),
+          );
+        })] },
+      ];
+    }
+    case 'presets':
+      return [
+        { title: 'Canevas', items: [
+          B('resize', 'Taille…', () => A.resizeCanvasDialog()),
+          N(() => stack(field('Tailles prédéfinies', select([['', 'Choisir…'], ...A.sizePresets().map((p, i) => [i, p[0]])], '', (v) => {
+            if (v === '') return;
+            const p = A.sizePresets()[v];
+            A.resizeCanvasDialog(p[1], p[2]);
+          })))),
+        ] },
+        { title: 'Palettes', items: [N(() => {
+          const box = el('div', 'palette-presets');
+          for (const [name, p] of Object.entries(PALETTES)) {
+            const b = el('button', 'pal-preset' + (app.paletteName === name ? ' active' : ''));
+            b.innerHTML = `<span class="strip">${p.colors.slice(0, 8).map((c) => `<i style="background:${c}"></i>`).join('')}</span><span>${escapeHtml(name)}</span>`;
+            b.onclick = () => A.loadPalette(name);
+            box.appendChild(b);
+          }
+          return box;
+        })] },
+        { title: 'Pinceaux', items: [B('star', 'Enregistrer', A.saveBrush), N(() => {
+          const box = el('div', 'brush-list');
+          const list = A.getBrushes();
+          if (!list.length) box.appendChild(el('span', 'muted', 'Enregistre ton pinceau actuel pour le retrouver ici'));
+          list.forEach((b, i) => {
+            const btn = el('button', 'chip' + (b.mode !== app.mode ? ' off' : ''), `<i style="background:${b.color}"></i>${escapeHtml(b.name)}`);
+            btn.title = 'Clic : utiliser — Clic droit : supprimer';
+            btn.onclick = () => A.applyBrush(b);
+            btn.oncontextmenu = (e) => { e.preventDefault(); A.deleteBrush(i); };
+            box.appendChild(btn);
+          });
+          return box;
+        })] },
+      ];
+    case 'affichage':
+      return [
+        { title: 'Zoom', items: [
+          B('zoomIn', 'Zoom +', () => zoomStep(1), { tip: 'Ctrl++' }), B('zoomOut', 'Zoom −', () => zoomStep(-1), { tip: 'Ctrl+-' }),
+          B('fit', 'Ajuster', fitView, { tip: 'Ctrl+0' }), B('one', '100 %', () => setZoom(1), { tip: 'Ctrl+1' }),
+        ] },
+        { title: 'Repères', items: [
+          B('grid', 'Grille', () => A.toggle('showGrid'), { active: app.showGrid, tip: 'Ctrl+G' }),
+          B('ruler', 'Règles', () => A.toggle('showRulers'), { active: app.showRulers, tip: 'Ctrl+R' }),
+          N(() => stack(field(isPixel ? 'Grande grille tous les' : 'Grille', isPixel
+            ? select([[0, 'Aucune'], [4, '4 px'], [8, '8 px'], [16, '16 px'], [32, '32 px']], app.gridMajor, (v) => { app.gridMajor = Number(v); rr(); })
+            : el('span', 'muted', 'automatique')))),
+        ] },
+        { title: 'Fenêtre', items: [B('full', 'Plein écran', toggleFullscreen, { tip: 'F11' })] },
+        { title: 'Couleur d’accent', items: [N(() => {
+          const box = el('div', 'accent-list');
+          for (const c of ACCENTS) {
+            const b = el('button', 'accent-sw' + (app.accent === c ? ' active' : ''));
+            b.style.background = c;
+            b.onclick = () => A.setAccent(c);
+            box.appendChild(b);
+          }
+          return box;
+        })] },
+      ];
+    case 'aide':
+      return [
+        { title: 'Aide', items: [B('keyboard', 'Raccourcis', showShortcuts, { tip: 'F1' }), B('book', 'Tutoriel', showTutorial), B('info', 'À propos', showAbout)] },
+      ];
+  }
+  return [];
+}
+
+function renderTabs() {
+  const bar = document.getElementById('tabbar');
+  bar.innerHTML = '';
+  for (const [id, label] of TABS) {
+    const b = el('button', 'tab' + (id === current ? ' active' : '') + (id === 'fichier' ? ' file' : ''), label);
+    b.onclick = () => {
+      current = id;
+      store('tab', id);
+      render();
+    };
+    bar.appendChild(b);
+  }
+  const badge = document.getElementById('modeBadge');
+  if (app.doc) badge.innerHTML = `${icon(app.mode === 'pixel' ? 'pixel' : 'brush', 14)} ${app.mode === 'pixel' ? 'Pixel art' : 'Dessin vectoriel'} · ${app.doc.width} × ${app.doc.height}`;
+}
+
+function render() {
+  renderTabs();
+  const body = document.getElementById('ribbonBody');
+  const scroll = body.scrollLeft;
+  body.innerHTML = '';
+  if (!app.doc) return;
+  for (const g of groups(current)) {
+    const ge = el('div', 'rgroup');
+    const items = el('div', 'rgroup-items');
+    for (const it of g.items) {
+      if (it.type === 'node') {
+        items.appendChild(it.fn());
+        continue;
+      }
+      const b = el('button', 'rbtn' + (it.active ? ' active' : ''), icon(it.icon, 22) + `<span>${escapeHtml(it.label)}</span>`);
+      b.title = it.label + (it.tip ? ` (${it.tip})` : '');
+      b.disabled = !!it.disabled;
+      b.onclick = () => it.act();
+      items.appendChild(b);
+    }
+    ge.append(items, el('div', 'rgroup-title', escapeHtml(g.title)));
+    body.appendChild(ge);
+  }
+  body.scrollLeft = scroll;
+}
+
+export function initRibbon() {
+  on('ui', render);
+  render();
+}
