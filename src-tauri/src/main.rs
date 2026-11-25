@@ -169,9 +169,69 @@ fn recovery_clear(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+// ------------------------------------------------------------------ Discord Rich Presence
+// Affiche « Joue à Animotion » sur le profil Discord. Si Discord n'est pas lancé, on ignore
+// simplement l'erreur et on réessaiera à la prochaine mise à jour du statut.
+use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
+use std::sync::Mutex;
+
+#[derive(Default)]
+struct Discord(Mutex<Option<(String, DiscordIpcClient)>>);
+
+#[tauri::command]
+async fn discord_set(
+    discord: tauri::State<'_, Discord>,
+    client_id: String,
+    details: String,
+    state: String,
+    start: i64,
+    image: String,
+    button_label: String,
+    button_url: String,
+) -> Result<(), String> {
+    let mut guard = discord.0.lock().map_err(|e| e.to_string())?;
+    // (re)connexion si besoin, ou si l'identifiant d'application a changé
+    if guard.as_ref().map(|(id, _)| id != &client_id).unwrap_or(true) {
+        if let Some((_, mut old)) = guard.take() {
+            let _ = old.close();
+        }
+        let mut client = DiscordIpcClient::new(&client_id);
+        client.connect().map_err(|e| format!("Discord introuvable : {e}"))?;
+        *guard = Some((client_id.clone(), client));
+    }
+    let (_, client) = guard.as_mut().unwrap();
+    let mut act = activity::Activity::new()
+        .details(details.as_str())
+        .state(state.as_str())
+        .timestamps(activity::Timestamps::new().start(start))
+        .assets(activity::Assets::new().large_image(image.as_str()).large_text("Animotion"));
+    if !button_url.is_empty() {
+        act = act.buttons(vec![activity::Button::new(button_label.as_str(), button_url.as_str())]);
+    }
+    if let Err(e) = client.set_activity(act) {
+        // connexion perdue (Discord fermé) : on repartira de zéro la prochaine fois
+        if let Some((_, mut c)) = guard.take() {
+            let _ = c.close();
+        }
+        return Err(format!("Discord déconnecté : {e}"));
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn discord_clear(discord: tauri::State<'_, Discord>) -> Result<(), String> {
+    let mut guard = discord.0.lock().map_err(|e| e.to_string())?;
+    if let Some((_, mut c)) = guard.take() {
+        let _ = c.clear_activity();
+        let _ = c.close();
+    }
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(Discord::default())
         .invoke_handler(tauri::generate_handler![
             write_file,
             read_file,
@@ -179,7 +239,9 @@ fn main() {
             recovery_write,
             recovery_meta,
             recovery_read,
-            recovery_clear
+            recovery_clear,
+            discord_set,
+            discord_clear
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement d'Animotion");

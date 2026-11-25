@@ -26,6 +26,7 @@ import { toggleFullscreen, isTauri } from './platform.js';
 import { showShortcuts, showTutorial, showAbout } from './help.js';
 import { checkForUpdate } from './update.js';
 import { importSpriteScript } from './sprites.js';
+import { discordSettings, setDiscord, discordAvailable } from './discord.js';
 import { layout, toggleLayout, setUiScale, resetLayout } from './layout.js';
 
 const TABS = [
@@ -368,6 +369,14 @@ function groups(tab) {
     case 'aide':
       return [
         { title: 'Aide', items: [B('keyboard', 'Raccourcis', showShortcuts, { tip: 'F1' }), B('book', 'Tutoriel', showTutorial), B('info', 'À propos', showAbout), B('import', 'Mises à jour', () => checkForUpdate(false))] },
+        { title: 'Discord', items: [
+          B('discord', discordSettings.enabled ? 'Statut Discord' : 'Discord coupé', () => setDiscord('enabled', !discordSettings.enabled), {
+            active: discordSettings.enabled && discordAvailable(), tip: 'Afficher « Joue à Animotion » sur ton profil Discord',
+          }),
+          B(discordSettings.showName ? 'eye' : 'eyeOff', discordSettings.showName ? 'Nom visible' : 'Nom caché', () => setDiscord('showName', !discordSettings.showName), {
+            active: discordSettings.showName, disabled: !discordSettings.enabled, tip: 'Montrer ou cacher le nom du projet sur Discord',
+          }),
+        ] },
       ];
   }
   return [];
