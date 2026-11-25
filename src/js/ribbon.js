@@ -10,6 +10,7 @@ const rr = () => { requestRender(); refreshUI(); };
 import { PALETTES, ACCENTS } from './palettes.js';
 import { toggleFullscreen, isTauri } from './platform.js';
 import { showShortcuts, showTutorial, showAbout } from './help.js';
+import { checkForUpdate } from './update.js';
 import { layout, toggleLayout, setUiScale, resetLayout } from './layout.js';
 
 const TABS = [
@@ -297,7 +298,7 @@ function groups(tab) {
       ];
     case 'aide':
       return [
-        { title: 'Aide', items: [B('keyboard', 'Raccourcis', showShortcuts, { tip: 'F1' }), B('book', 'Tutoriel', showTutorial), B('info', 'À propos', showAbout)] },
+        { title: 'Aide', items: [B('keyboard', 'Raccourcis', showShortcuts, { tip: 'F1' }), B('book', 'Tutoriel', showTutorial), B('info', 'À propos', showAbout), B('import', 'Mises à jour', () => checkForUpdate(false))] },
       ];
   }
   return [];

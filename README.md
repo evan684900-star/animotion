@@ -14,6 +14,8 @@ Liens fixes, toujours vers la dernière version (recompilée automatiquement à 
 
 > Il faut WebView2, déjà présent sur Windows 10 et 11.
 
+**Mises à jour automatiques** : au démarrage, Animotion regarde s'il existe une version plus récente sur GitHub et propose de l'installer en un clic (téléchargement, remplacement de l'exe, redémarrage). Tu peux aussi vérifier à la main dans Aide › Mises à jour.
+
 ## Interface redimensionnable
 
 - Glisse les bords de la barre d'outils, du panneau de droite, de la timeline et de la colonne des calques (double-clic pour revenir à la taille par défaut).

@@ -2,6 +2,7 @@ import { modal } from './dialogs.js';
 import { el } from './util.js';
 import { LOGO } from './icons.js';
 import { store } from './state.js';
+import { currentVersion } from './update.js';
 
 const SHORTCUTS = [
   ['Outils', [
@@ -61,10 +62,11 @@ export async function showTutorial() {
   store('tutoDone', true);
 }
 
-export function showAbout() {
+export async function showAbout() {
+  const v = await currentVersion();
   return modal({
     title: 'À propos',
-    content: `<div class="about"><div class="about-logo">${LOGO}</div><div><h2>Animotion</h2><p>Version 0.1.0</p><p>Logiciel d’animation dessin & pixel art, en noir et bleu. Fait avec ❤️ et Tauri.</p></div></div>`,
+    content: `<div class="about"><div class="about-logo">${LOGO}</div><div><h2>Animotion</h2><p>Version ${v}</p><p>Logiciel d’animation dessin & pixel art, en noir et bleu. Fait avec ❤️ et Tauri.</p></div></div>`,
     buttons: [{ label: 'Fermer', value: true, primary: true }],
   });
 }
