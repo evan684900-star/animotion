@@ -552,3 +552,16 @@ body.resizing.h { cursor: row-resize !important; }
 .xp-segb.active { background: var(--accent); color: #fff; }
 .xp-segb:disabled { opacity: 0.35; cursor: not-allowed; }
 .xp-info { margin-right: auto; align-self: center; color: var(--muted); font-size: 12.5px; }
+
+/* ------------------------------------------------ Modifier l'image */
+.ie { width: min(640px, 86vw); }
+.ie-previews { display: flex; gap: 14px; justify-content: center; margin-bottom: 6px; }
+.ie-previews figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.ie-previews canvas {
+  width: 200px; height: 200px; object-fit: contain; image-rendering: pixelated; border-radius: 8px; border: 1px solid var(--border2);
+  background: repeating-conic-gradient(#1f2430 0 25%, #161a22 0 50%) 0 0 / 16px 16px;
+}
+.ie-previews figcaption { font-size: 11.5px; color: var(--muted); }
+.ie-controls .xp-row input[type='range'] { flex: 1; }
+.ie-controls .val { min-width: 52px; text-align: right; color: var(--muted); font-size: 12px; }
+.ie-checks { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 6px; }

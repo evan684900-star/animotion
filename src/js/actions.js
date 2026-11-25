@@ -289,6 +289,8 @@ export function setDoc(doc, meta = {}) {
   app.dirty = false;
   app.render.scale = doc.mode === 'pixel' ? (doc.width <= 64 ? 8 : doc.width <= 256 ? 4 : 1) : 1;
   app.gridMajor = doc.mode === 'pixel' ? (doc.width <= 64 ? 8 : 16) : 8;
+  // grille : affichée par défaut en pixel art, masquée en dessin (chaque mode garde son réglage)
+  app.showGrid = store('showGrid.' + doc.mode) ?? doc.mode === 'pixel';
   clearHistory();
   hideStart();
   fitView();
@@ -398,8 +400,8 @@ function removeRecent(path) {
 // ------------------------------------------------------------ Import
 const IMG_FILTERS = [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'] }];
 
-async function pickImage() {
-  const f = await openFile(IMG_FILTERS);
+async function pickImage(given = null) {
+  const f = given || (await openFile(IMG_FILTERS));
   if (!f) return null;
   const url = await bytesToDataURL(f.bytes, mimeFromName(f.name));
   const img = await loadImage(url);
@@ -410,12 +412,12 @@ function imageShape(url, iw, ih, x, y, w, h) {
   return { id: newId(), img: url, iw, ih, pts: [[x, y], [x + w, y], [x + w, y + h], [x, y + h]] };
 }
 
-export async function importImage() {
+export async function importImage(file = null) {
   commitFloating();
   if (curLayer().locked) return toast('Ce calque est verrouillé 🔒', 'warn');
   let res;
   try {
-    res = await pickImage();
+    res = await pickImage(file);
   } catch (e) {
     return toast(e.message, 'error');
   }
@@ -560,6 +562,7 @@ export function setAccent(hex) {
 }
 export function toggle(key) {
   app[key] = !app[key];
+  if (key === 'showGrid' && app.doc) store('showGrid.' + app.doc.mode, app.showGrid);
   if (key === 'showRulers') document.getElementById('stage').classList.toggle('no-rulers', !app.showRulers);
   if (key === 'showRulers') window.dispatchEvent(new Event('resize'));
   requestRender();

@@ -111,19 +111,21 @@ function renderNow() {
 
 const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-let checker = null;
-function checkerPattern(ctx) {
-  if (!checker) {
-    const c = makeCanvas(16, 16);
+const checkers = {};
+// pixel : petits carrés bien visibles ; dessin : grands carrés très discrets (pour ne pas ressembler à des pixels)
+function checkerPattern(ctx, mode) {
+  if (!checkers[mode]) {
+    const [size, a, b] = mode === 'pixel' ? [8, '#161a22', '#1f2430'] : [24, '#181c25', '#1c212b'];
+    const c = makeCanvas(size * 2, size * 2);
     const x = c.getContext('2d');
-    x.fillStyle = '#161a22';
-    x.fillRect(0, 0, 16, 16);
-    x.fillStyle = '#1f2430';
-    x.fillRect(0, 0, 8, 8);
-    x.fillRect(8, 8, 8, 8);
-    checker = c;
+    x.fillStyle = a;
+    x.fillRect(0, 0, size * 2, size * 2);
+    x.fillStyle = b;
+    x.fillRect(0, 0, size, size);
+    x.fillRect(size, size, size, size);
+    checkers[mode] = c;
   }
-  return ctx.createPattern(checker, 'repeat');
+  return ctx.createPattern(checkers[mode], 'repeat');
 }
 
 let onionCanvas = null;
@@ -182,7 +184,7 @@ function renderView() {
   ctx.rect(ox, oy, dw, dh);
   ctx.clip();
   if (app.grid.checker) {
-    const pat = checkerPattern(ctx);
+    const pat = checkerPattern(ctx, d.mode);
     pat.setTransform(new DOMMatrix().translate(ox, oy).scale(dpr));
     ctx.fillStyle = pat;
   } else ctx.fillStyle = app.grid.bg;

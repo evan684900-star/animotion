@@ -29,7 +29,10 @@ document.addEventListener('drop', async (e) => {
   const file = { path: null, name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) };
   if (/\.(js|mjs|json|txt)$/.test(name)) importSpriteScript(file);
   else if (name.endsWith('.animo')) A.openProjectBytes(file);
-  else toast('Glisse un fichier .js (sprites) ou .animo (projet)');
+  else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(name)) {
+    if (!app.doc || !document.getElementById('startScreen').classList.contains('hidden')) return toast('Crée ou ouvre d’abord un projet, puis glisse ton image dessus 🖼️');
+    A.importImage(file);
+  } else toast('Glisse une image, un fichier .js (sprites) ou un projet .animo');
 });
 
 document.querySelector('.brand-logo').innerHTML = LOGO;

@@ -400,6 +400,19 @@ function rdp(pts, eps) {
   return [a, b];
 }
 
+// Moyenne glissante (les extrémités restent en place)
+function smoothPoints(pts, passes) {
+  let out = pts;
+  for (let k = 0; k < passes; k++) {
+    out = out.map((p, i) => {
+      if (i === 0 || i === out.length - 1) return p;
+      const a = out[i - 1], c = out[i + 1];
+      return [(a[0] + 2 * p[0] + c[0]) / 4, (a[1] + 2 * p[1] + c[1]) / 4];
+    });
+  }
+  return out;
+}
+
 function vectorShapePts(tool, x0, y0, x1, y1) {
   if (tool === 'line') return [[x0, y0], [x1, y1]];
   if (tool === 'rect') return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
@@ -432,7 +445,7 @@ function vectorDown(p, e) {
   if (color === TRANSPARENT && tool !== 'bucket' && tool !== 'eraser') tool = 'eraser';
 
   if (tool === 'brush') {
-    const s = { id: newId(), pts: [[R2(p.x), R2(p.y)]], smooth: false, closed: false, stroke: color, width: app.vectorSize, fill: null };
+    const s = { id: newId(), pts: [[R2(p.x), R2(p.y)]], smooth: true, closed: false, stroke: color, width: app.vectorSize, fill: null };
     cel.shapes.push(s);
     const raw = [[p.x, p.y]];
     return {
@@ -440,13 +453,15 @@ function vectorDown(p, e) {
         const last = raw[raw.length - 1];
         if (Math.hypot(q.x - last[0], q.y - last[1]) < 0.75 / app.zoom) return;
         raw.push([q.x, q.y]);
-        s.pts = raw.map((r) => [R2(r[0]), R2(r[1])]);
+        s.pts = raw.map((r) => [R2(r[0]), R2(r[1])]); // courbe lisse dès le tracé
       },
       up() {
         if (raw.length > 2) {
-          const eps = (app.smoothing ? 1.6 : 0.5) / app.zoom;
-          s.pts = rdp(raw, eps).map((r) => [R2(r[0]), R2(r[1])]);
-          s.smooth = app.smoothing && s.pts.length > 2;
+          // on gomme les tremblements de la main (moyenne glissante), puis on simplifie sans créer d'angles
+          const pts = app.smoothing ? smoothPoints(raw, 2) : raw;
+          const eps = (app.smoothing ? 0.7 : 0.3) / app.zoom;
+          s.pts = rdp(pts, eps).map((r) => [R2(r[0]), R2(r[1])]);
+          s.smooth = s.pts.length > 2;
         }
         commitVector(before);
         recentColor(color);

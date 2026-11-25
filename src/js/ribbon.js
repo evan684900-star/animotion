@@ -28,6 +28,7 @@ import { importSpriteScript } from './sprites.js';
 import { discordSettings, setDiscord, discordAvailable } from './discord.js';
 import { showMcpSetup } from './mcp.js';
 import { showExportDialog } from './exportdialog.js';
+import { showImageAdjust } from './imageedit.js';
 import { layout, toggleLayout, setUiScale, resetLayout } from './layout.js';
 
 const TABS = [
@@ -150,6 +151,10 @@ function groups(tab) {
           return B(d.icon, d.label, () => Tl.setTool(t), { active: app.tool === t, tip: d.key });
         }) },
         { title: 'Couleurs', items: [N(colorPair)] },
+        { title: 'Image', items: [
+          B('image', 'Importer', () => A.importImage(), { tip: 'Ajouter une image (ou glisse-la sur la fenêtre)' }),
+          B('palette', 'Modifier l’image', showImageAdjust, { tip: isPixel ? 'Luminosité, couleurs, effet pixel art… sur la sélection ou la frame' : 'Luminosité, couleurs… sur l’image sélectionnée avec le Pointeur' }),
+        ] },
         { title: 'Édition', items: [
           B('undo', 'Annuler', undo, { disabled: !canUndo(), tip: 'Ctrl+Z' }), B('redo', 'Rétablir', redo, { disabled: !canRedo(), tip: 'Ctrl+Y' }),
           B('copy', 'Copier', () => Tl.copySel(), { tip: 'Ctrl+C' }), B('cut', 'Couper', Tl.cutSel, { tip: 'Ctrl+X' }),
