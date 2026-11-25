@@ -11,12 +11,14 @@ import { isModalOpen } from './dialogs.js';
 import { showShortcuts, showTutorial } from './help.js';
 import { toggleFullscreen } from './platform.js';
 import { LOGO } from './icons.js';
+import { initLayout, toggleLayout, setUiScale, layout } from './layout.js';
 
 document.querySelector('.brand-logo').innerHTML = LOGO;
 
 const accent = store('accent');
 if (accent) A.setAccent(accent);
 
+initLayout();
 initRibbon();
 initPanels();
 initTimeline();
@@ -99,7 +101,18 @@ window.addEventListener('keydown', (e) => {
     toggleFullscreen();
     return;
   }
-  if (!app.doc || isModalOpen() || typing(e.target)) return;
+  if (isModalOpen() || typing(e.target)) return;
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && ['+', '=', '-', '_', '0', ')'].includes(e.key)) {
+    e.preventDefault();
+    setUiScale(e.key === '0' || e.key === ')' ? 1 : layout.ui + (e.key === '-' || e.key === '_' ? -0.1 : 0.1));
+    return;
+  }
+  if (e.key === 'F1' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    toggleLayout('ribbon');
+    return;
+  }
+  if (!app.doc) return;
   if (!document.getElementById('startScreen').classList.contains('hidden')) return;
   const k = e.key.toLowerCase();
   const mod = e.ctrlKey || e.metaKey;

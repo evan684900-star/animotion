@@ -10,6 +10,7 @@ const rr = () => { requestRender(); refreshUI(); };
 import { PALETTES, ACCENTS } from './palettes.js';
 import { toggleFullscreen, isTauri } from './platform.js';
 import { showShortcuts, showTutorial, showAbout } from './help.js';
+import { layout, toggleLayout, setUiScale, resetLayout } from './layout.js';
 
 const TABS = [
   ['fichier', 'Fichier'], ['accueil', 'Accueil'], ['calques', 'Calques'], ['animation', 'Animation'],
@@ -269,6 +270,20 @@ function groups(tab) {
             : el('span', 'muted', 'automatique')))),
         ] },
         { title: 'Fenêtre', items: [B('full', 'Plein écran', toggleFullscreen, { tip: 'F11' })] },
+        { title: 'Interface', items: [
+          B('zoomOut', 'Plus petit', () => setUiScale(layout.ui - 0.1), { tip: 'Ctrl+Maj+-' }),
+          N(() => {
+            const b = el('button', 'rbtn ui-scale', `<b style="font-size:15px;line-height:22px">${Math.round(layout.ui * 100)} %</b><span>Taille</span>`);
+            b.title = 'Revenir à 100 % (Ctrl+Maj+0)';
+            b.onclick = () => setUiScale(1);
+            return b;
+          }),
+          B('zoomIn', 'Plus grand', () => setUiScale(layout.ui + 0.1), { tip: 'Ctrl+Maj++' }),
+          B('layers', 'Panneau', () => toggleLayout('showSide'), { active: layout.showSide }),
+          B('film', 'Timeline', () => toggleLayout('showTl'), { active: layout.showTl }),
+          B('up', 'Ruban', () => toggleLayout('ribbon'), { active: layout.ribbon, tip: 'Ctrl+F1' }),
+          B('resize', 'Réinitialiser', resetLayout),
+        ] },
         { title: 'Couleur d’accent', items: [N(() => {
           const box = el('div', 'accent-list');
           for (const c of ACCENTS) {
@@ -294,10 +309,13 @@ function renderTabs() {
   for (const [id, label] of TABS) {
     const b = el('button', 'tab' + (id === current ? ' active' : '') + (id === 'fichier' ? ' file' : ''), label);
     b.onclick = () => {
+      if (current === id && layout.ribbon) return;
       current = id;
       store('tab', id);
+      if (!layout.ribbon) toggleLayout('ribbon');
       render();
     };
+    b.ondblclick = () => toggleLayout('ribbon');
     bar.appendChild(b);
   }
   const badge = document.getElementById('modeBadge');

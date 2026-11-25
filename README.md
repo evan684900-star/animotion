@@ -7,12 +7,19 @@ Logiciel d'animation image par image pour Windows (.exe), en **noir et bleu**, a
 
 ## Télécharger le .exe
 
-Chaque push sur `main` compile automatiquement l'appli sur GitHub (onglet **Actions**, puis **Releases**) :
+Liens fixes, toujours vers la dernière version (recompilée automatiquement à chaque push sur `main`) :
 
-- `Animotion-portable.exe` : se lance directement, sans rien installer (environ 10 Mo)
-- `Animotion_x.y.z_x64-setup.exe` : installeur classique
+- **[Animotion.exe](https://github.com/evan684900-star/animotion/releases/latest/download/Animotion.exe)** : se lance directement, sans installation
+- **[Animotion-installateur.exe](https://github.com/evan684900-star/animotion/releases/latest/download/Animotion-installateur.exe)** : installeur avec raccourci
 
 > Il faut WebView2, déjà présent sur Windows 10 et 11.
+
+## Interface redimensionnable
+
+- Glisse les bords de la barre d'outils, du panneau de droite, de la timeline et de la colonne des calques (double-clic pour revenir à la taille par défaut).
+- Change la largeur des frames de la timeline avec le curseur ou avec Ctrl+molette.
+- Change la taille de toute l'interface avec Affichage › Plus petit / Plus grand (Ctrl+Maj+ / Ctrl+Maj−).
+- Replie le ruban avec Ctrl+F1, et masque le panneau ou la timeline depuis l'onglet Affichage.
 
 ## Fonctionnalités
 

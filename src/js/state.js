@@ -16,7 +16,7 @@ export const app = {
   panX: 0,
   panY: 0,
   showGrid: true,
-  showRulers: true,
+  showRulers: false,
   gridMajor: 8,
   onion: { enabled: false, before: 1, after: 1 },
   playing: false,

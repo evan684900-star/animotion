@@ -2,8 +2,11 @@ import { app, on } from './state.js';
 import { el, escapeHtml } from './util.js';
 import { icon } from './icons.js';
 import * as A from './actions.js';
+import { layout, setLayout, makeResizer } from './layout.js';
 
-const root = document.getElementById('timeline');
+const root = el('div', 'tl-inner');
+root.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0';
+document.getElementById('timeline').appendChild(root);
 
 function btn(ic, title, fn, cls = '') {
   const b = el('button', 'icon-btn ' + cls, icon(ic, 16));
@@ -40,7 +43,6 @@ function render() {
       app.playMode = { loop: 'pingpong', pingpong: 'once', once: 'loop' }[app.playMode];
       render();
     }, app.playMode !== 'loop' ? 'on' : ''),
-    el('span', 'tl-mode', { loop: 'Boucle', pingpong: 'Ping-pong', once: 'Une fois' }[app.playMode]),
   );
   const fps = el('label', 'tl-fps');
   const fi = el('input');
@@ -49,7 +51,18 @@ function render() {
   fps.append(fi, el('span', null, 'FPS'));
   const info = el('span', 'tl-info', `Frame <b>${app.frameIndex + 1}</b> / ${d.frames.length} · ${Math.round(d.duration(app.frameIndex))} ms`);
   info.classList.add('tl-frameinfo');
-  c.append(el('span', 'grow'), info, fps);
+  const zoom = el('label', 'tl-zoom');
+  zoom.title = 'Largeur des frames (Ctrl+molette sur la timeline)';
+  const zr = el('input');
+  Object.assign(zr, { type: 'range', min: 16, max: 90, value: layout.cell });
+  zr.oninput = () => {
+    layout.cell = Number(zr.value);
+    document.documentElement.style.setProperty('--cell-w', layout.cell + 'px');
+  };
+  zr.onchange = () => setLayout('cell', Number(zr.value));
+  zoom.innerHTML = icon('zoomIn', 15);
+  zoom.appendChild(zr);
+  c.append(el('span', 'grow'), zoom, info, fps);
   root.appendChild(c);
 
   // --- grille calques × frames
@@ -63,6 +76,9 @@ function render() {
   const ci = el('div', 'lname-inner');
   ci.appendChild(addL);
   corner.appendChild(ci);
+  const rz = el('div', 'rz-lname');
+  makeResizer(rz, 'lname', 'x', 1);
+  corner.appendChild(rz);
   hr.appendChild(corner);
   d.frames.forEach((f, i) => {
     const th = el('th', 'fnum' + (i === app.frameIndex ? ' cur' : '') + (f.duration ? ' timed' : ''), String(i + 1));
@@ -147,6 +163,11 @@ function updateCurrent() {
 }
 
 export function initTimeline() {
+  root.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    setLayout('cell', layout.cell + (e.deltaY < 0 ? 4 : -4));
+  }, { passive: false });
   on('ui', render);
   on('frame', updateCurrent);
 }

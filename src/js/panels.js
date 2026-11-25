@@ -18,10 +18,6 @@ function renderToolbar() {
     b.onclick = () => setTool(t);
     tb.appendChild(b);
   }
-  tb.appendChild(el('div', 'tb-sep'));
-  const pair = colorPair();
-  pair.classList.add('mini');
-  tb.appendChild(pair);
 }
 
 // ---------------------------------------------------------- Panneau de droite
@@ -112,13 +108,9 @@ function renderPanel() {
       ? 'Glisse pour sélectionner, puis glisse la sélection pour la déplacer. Flèches : décaler d’1 px'
       : 'Clique un trait pour le sélectionner (Maj : plusieurs), déplace-le, ou tire ses points blancs pour le remodeler',
   };
-  toolBox.appendChild(el('p', 'tip', escapeHtml(tips[app.tool] || '')));
+  if (app.tool === 'select' || app.tool === 'bucket') toolBox.appendChild(el('p', 'tip', escapeHtml(tips[app.tool] || '')));
   p.appendChild(section(`Outil · ${d.label}`, toolBox));
 
-  if (app.mode === 'vector' && app.tool === 'select') {
-    const n = selectedShapes().length;
-    p.appendChild(section('Sélection', el('p', 'tip', n ? `${n} élément${n > 1 ? 's' : ''} sélectionné${n > 1 ? 's' : ''} — la couleur 1 et la taille s’appliquent dessus` : 'Rien de sélectionné')));
-  }
 
   // Calque
   const l = curLayer();
@@ -158,10 +150,8 @@ export function renderStatus() {
     <span>Zoom ${Math.round(app.zoom * 100)} %</span>
     <span>Curseur ${pos}</span>
     <span>Frame ${app.frameIndex + 1}/${app.doc.frames.length}</span>
-    <span>${escapeHtml(curLayer().name)}</span>
     <span class="grow"></span>
-    <span>${app.dirty ? '● Non enregistré' : canUndo() ? '✔ Enregistré' : ''}</span>
-    <span>${app.doc.fps} FPS</span>`;
+    <span>${app.dirty ? '● Non enregistré' : ''}</span>`;
 }
 
 export function initPanels() {
