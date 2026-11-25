@@ -209,7 +209,7 @@ export class Doc {
 
 // ---------------------------------------------------------- Aides au chargement « écrit à la main »
 const CLEAR = new Set(['.', ' ', '_', '-', '0']);
-function drawRows(ctx, cel, globalPal) {
+export function drawRows(ctx, cel, globalPal) {
   const pal = { ...(globalPal || {}), ...(cel.palette || {}) };
   const ox = Math.round(+cel.x || 0), oy = Math.round(+cel.y || 0);
   (cel.rows || []).forEach((row, y) => {
@@ -217,7 +217,8 @@ function drawRows(ctx, cel, globalPal) {
     cells.forEach((ch, x) => {
       const key = String(ch);
       let col = Object.prototype.hasOwnProperty.call(pal, key) ? pal[key] : CLEAR.has(key) ? null : '#ff00ff'; // magenta = caractère sans couleur
-      if (!col || col === 'transparent') return;
+      if (!col) return;
+      if (col === 'transparent') return ctx.clearRect(ox + x, oy + y, 1, 1);
       ctx.fillStyle = col;
       ctx.fillRect(ox + x, oy + y, 1, 1);
     });
@@ -233,7 +234,7 @@ function ellipsePts(cx, cy, rx, ry) {
   return pts;
 }
 
-function normalizeShape(s) {
+export function normalizeShape(s) {
   if (!s || typeof s !== 'object') return null;
   const n = (v, def = 0) => (Number.isFinite(+v) ? +v : def);
   let pts = Array.isArray(s.pts) ? s.pts : Array.isArray(s.points) ? s.points : null;
@@ -262,7 +263,8 @@ function normalizeShape(s) {
       if (s.smooth === undefined && pts && pts.length > 2) smooth = true;
   }
   if (!pts || !pts.length) return null;
-  pts = pts.map((p) => (Array.isArray(p) ? [n(p[0]), n(p[1])] : [n(p.x), n(p.y)]));
+  const r2 = (v) => Math.round(v * 100) / 100;
+  pts = pts.map((p) => (Array.isArray(p) ? [r2(n(p[0])), r2(n(p[1]))] : [r2(n(p.x)), r2(n(p.y))]));
   const filled = s.fill && s.fill !== 'none' && s.fill !== 'transparent' ? s.fill : null;
   return {
     id: s.id ? String(s.id) : newId(),

@@ -1,0 +1,156 @@
+[
+  {
+    "name": "get_state",
+    "description": "Décrit le projet ouvert dans Animotion : mode (pixel ou vector), taille, fps, calques (index 0 = calque du bas), frames (index à partir de 0), calque et frame sélectionnés, couleurs, état d'enregistrement. À appeler en premier.",
+    "inputSchema": { "type": "object", "properties": {} }
+  },
+  {
+    "name": "new_project",
+    "description": "Crée un nouveau projet vide. mode 'pixel' = pixel art sur grille, 'vector' = dessin vectoriel. Refuse si le projet ouvert a des modifications non enregistrées, sauf discard_changes: true (à n'utiliser que si l'utilisateur l'a demandé).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "enum": ["pixel", "vector"] },
+        "width": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "fps": { "type": "integer", "minimum": 1, "maximum": 60 },
+        "discard_changes": { "type": "boolean" }
+      },
+      "required": ["mode", "width", "height"]
+    }
+  },
+  {
+    "name": "open_animo",
+    "description": "Ouvre une animation complète décrite en JSON au format .animo (le moyen le plus rapide de créer toute une animation d'un coup). Format : {app:'animotion', mode:'pixel'|'vector', width, height, fps, palette:{'#':'#ff0000'}, layers:[{id,name}], frames:[{id, duration?}], cels:{'idCalque:idFrame': {rows:['..##..'], x?, y?, palette?} (pixel) ou [formes] (vector)}}. Les clés de cels acceptent aussi les index ('0:0'). Formes vector : {type:'rect',x,y,w,h} | {type:'circle',cx,cy,r} | {type:'ellipse',cx,cy,rx,ry} | {type:'line',x1,y1,x2,y2} | {type:'path',pts:[[x,y],...],smooth?,closed?} avec fill, stroke, strokeWidth. Même règle que new_project pour discard_changes.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "animo": { "type": "object", "description": "Le projet .animo (objet JSON)" },
+        "name": { "type": "string", "description": "Nom du projet" },
+        "discard_changes": { "type": "boolean" }
+      },
+      "required": ["animo"]
+    }
+  },
+  {
+    "name": "draw_pixels",
+    "description": "Mode pixel : dessine des pixels sur une frame et un calque. rows = lignes de texte, un caractère = un pixel ; '.', ' ', '_', '-' et '0' sont transparents (laissent le pixel inchangé, sauf clear). palette associe chaque caractère à une couleur CSS ('transparent' efface). x, y = position du coin haut-gauche. clear: true vide d'abord la cel. Annulable par l'utilisateur (Ctrl+Z).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "rows": { "type": "array", "items": { "type": "string" } },
+        "palette": { "type": "object", "additionalProperties": { "type": "string" } },
+        "x": { "type": "integer" },
+        "y": { "type": "integer" },
+        "frame": { "type": "integer", "description": "Index de frame (défaut : frame sélectionnée)" },
+        "layer": { "description": "Index (0 = bas), nom ou id du calque (défaut : calque sélectionné)" },
+        "clear": { "type": "boolean" }
+      },
+      "required": ["rows", "palette"]
+    }
+  },
+  {
+    "name": "draw_shapes",
+    "description": "Mode vector : ajoute des formes sur une frame et un calque. Formes : {type:'rect',x,y,w,h} | {type:'circle',cx,cy,r} | {type:'ellipse',cx,cy,rx,ry} | {type:'line',x1,y1,x2,y2} | {type:'path',pts:[[x,y],...],smooth?,closed?}, avec fill (couleur ou absent), stroke (couleur), strokeWidth. clear: true vide d'abord la cel.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "shapes": { "type": "array", "items": { "type": "object" } },
+        "frame": { "type": "integer" },
+        "layer": { "description": "Index (0 = bas), nom ou id du calque" },
+        "clear": { "type": "boolean" }
+      },
+      "required": ["shapes"]
+    }
+  },
+  {
+    "name": "read_frame",
+    "description": "Lit le contenu d'une cel (une frame d'un calque). Mode pixel : renvoie des lignes de texte + la palette des caractères (zone x,y,w,h facultative, 128×128 max). Mode vector : renvoie la liste des formes. Utile pour modifier précisément un dessin existant.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "frame": { "type": "integer" },
+        "layer": { "description": "Index, nom ou id du calque" },
+        "x": { "type": "integer" }, "y": { "type": "integer" },
+        "w": { "type": "integer" }, "h": { "type": "integer" }
+      }
+    }
+  },
+  {
+    "name": "get_frame_image",
+    "description": "Renvoie une image PNG de la frame (tous les calques visibles), agrandie pour être bien visible. Sert à vérifier visuellement le résultat.",
+    "inputSchema": {
+      "type": "object",
+      "properties": { "frame": { "type": "integer" }, "scale": { "type": "number" } }
+    }
+  },
+  {
+    "name": "add_frames",
+    "description": "Ajoute des frames après la frame 'after' (défaut : la frame sélectionnée). duplicate: true copie le contenu de la frame 'after' (pratique pour animer par petites modifications). duration en ms (facultatif). Renvoie les index des nouvelles frames.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "count": { "type": "integer", "minimum": 1, "maximum": 200 },
+        "after": { "type": "integer" },
+        "duplicate": { "type": "boolean" },
+        "duration": { "type": "integer" }
+      }
+    }
+  },
+  {
+    "name": "delete_frame",
+    "description": "Supprime une frame (index). Il reste toujours au moins une frame.",
+    "inputSchema": { "type": "object", "properties": { "frame": { "type": "integer" } }, "required": ["frame"] }
+  },
+  {
+    "name": "add_layer",
+    "description": "Ajoute un calque au-dessus du calque sélectionné (ou tout en haut avec on_top: true). Renvoie son index et son id.",
+    "inputSchema": { "type": "object", "properties": { "name": { "type": "string" }, "on_top": { "type": "boolean" } } }
+  },
+  {
+    "name": "clear_cel",
+    "description": "Vide une cel (frame + calque).",
+    "inputSchema": { "type": "object", "properties": { "frame": { "type": "integer" }, "layer": {} } }
+  },
+  {
+    "name": "select",
+    "description": "Sélectionne la frame et/ou le calque affichés dans l'appli.",
+    "inputSchema": { "type": "object", "properties": { "frame": { "type": "integer" }, "layer": {} } }
+  },
+  {
+    "name": "set_timing",
+    "description": "Change les images par seconde (fps) et/ou la durée d'une frame précise (frame + duration en ms ; duration 0 = automatique).",
+    "inputSchema": {
+      "type": "object",
+      "properties": { "fps": { "type": "integer" }, "frame": { "type": "integer" }, "duration": { "type": "integer" } }
+    }
+  },
+  {
+    "name": "play",
+    "description": "Lance (playing: true) ou arrête (false) la lecture de l'animation dans l'appli.",
+    "inputSchema": { "type": "object", "properties": { "playing": { "type": "boolean" } }, "required": ["playing"] }
+  },
+  {
+    "name": "undo",
+    "description": "Annule les dernières actions (steps, défaut 1).",
+    "inputSchema": { "type": "object", "properties": { "steps": { "type": "integer" } } }
+  },
+  {
+    "name": "save_project",
+    "description": "Enregistre le projet en .animo. Sans path : là où il était déjà enregistré, sinon dans Documents\\Animotion. Renvoie le chemin.",
+    "inputSchema": { "type": "object", "properties": { "path": { "type": "string" }, "name": { "type": "string" } } }
+  },
+  {
+    "name": "export",
+    "description": "Exporte l'animation : format 'gif', 'png' (frame sélectionnée), 'sequence' (zip de PNG), 'spritesheet', 'webm' ou 'mp4'. Sans path : dans Documents\\Animotion. scale = agrandissement (pixel art : 1 à 32). Renvoie le chemin du fichier.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "format": { "type": "string", "enum": ["gif", "png", "sequence", "spritesheet", "webm", "mp4"] },
+        "path": { "type": "string" },
+        "scale": { "type": "number" }
+      },
+      "required": ["format"]
+    }
+  }
+]

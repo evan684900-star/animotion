@@ -3,6 +3,8 @@
 
 use tauri::ipc::{InvokeBody, Request, Response};
 
+mod mcp;
+
 /// Décode un chemin encodé avec encodeURIComponent côté JS (les en-têtes HTTP doivent rester en ASCII).
 fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
@@ -33,7 +35,12 @@ fn write_file(request: Request<'_>) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     let path = percent_decode(path);
     match request.body() {
-        InvokeBody::Raw(bytes) => std::fs::write(&path, bytes).map_err(|e| e.to_string()),
+        InvokeBody::Raw(bytes) => {
+            if let Some(parent) = std::path::Path::new(&path).parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            std::fs::write(&path, bytes).map_err(|e| e.to_string())
+        }
         _ => Err("contenu invalide".into()),
     }
 }
@@ -82,7 +89,7 @@ async fn install_update(app: tauri::AppHandle, url: String) -> Result<(), String
         // 2. Script détaché : attend la fermeture, remplace l'exe, relance
         let swap = format!(
             "Wait-Process -Id {pid} -ErrorAction SilentlyContinue; \
-             for ($i = 0; $i -lt 40; $i++) {{ try {{ Copy-Item -Force '{src}' '{dst}' -ErrorAction Stop; break }} catch {{ Start-Sleep -Milliseconds 250 }} }}; \
+             for ($i = 0; $i -lt 40; $i++) {{ try {{ Remove-Item -Force '{dst}.old' -ErrorAction SilentlyContinue; Move-Item -Force '{dst}' '{dst}.old' -ErrorAction Stop; Copy-Item -Force '{src}' '{dst}' -ErrorAction Stop; break }} catch {{ Start-Sleep -Milliseconds 250 }} }}; \
              Remove-Item -Force '{src}' -ErrorAction SilentlyContinue; Start-Process '{dst}'",
             pid = std::process::id(),
             src = q(&tmp),
@@ -229,9 +236,31 @@ async fn discord_clear(discord: tauri::State<'_, Discord>) -> Result<(), String>
 }
 
 fn main() {
+    // Lancé par Claude Desktop : pont MCP sans fenêtre
+    if std::env::args().any(|a| a == "--mcp") {
+        mcp::run_bridge();
+        return;
+    }
+    // Connexion à Claude Desktop en ligne de commande (même chose que le bouton de l'appli)
+    if std::env::args().any(|a| a == "--mcp-install") {
+        match mcp::mcp_install() {
+            Ok(files) => println!("Animotion ajouté dans : {}", files.join(", ")),
+            Err(e) => eprintln!("Erreur : {e}"),
+        }
+        return;
+    }
+    // ménage après une mise à jour : l'ancien exe renommé
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::fs::remove_file(exe.with_extension("exe.old"));
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(Discord::default())
+        .manage(mcp::McpState::default())
+        .setup(|app| {
+            mcp::start_server(app.handle().clone());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             write_file,
             read_file,
@@ -241,7 +270,10 @@ fn main() {
             recovery_read,
             recovery_clear,
             discord_set,
-            discord_clear
+            discord_clear,
+            mcp::mcp_reply,
+            mcp::mcp_install,
+            mcp::mcp_exe_path
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement d'Animotion");

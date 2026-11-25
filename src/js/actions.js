@@ -326,12 +326,12 @@ export async function newProject() {
   showStart(true);
 }
 
-export async function saveProject(as = false) {
+export async function saveProject(as = false, explicitPath = null) {
   commitFloating();
   const json = JSON.stringify(app.doc.serialize());
   const bytes = new TextEncoder().encode(json);
   try {
-    const path = await saveFile(bytes, (app.fileName || 'animation') + '.animo', [{ name: 'Projet Animotion', extensions: ['animo'] }], as ? null : app.filePath);
+    const path = await saveFile(bytes, (app.fileName || 'animation') + '.animo', [{ name: 'Projet Animotion', extensions: ['animo'] }], explicitPath || (as ? null : app.filePath));
     if (!path) return false;
     if (isTauri) {
       app.filePath = path;

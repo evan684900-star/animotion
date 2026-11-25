@@ -27,6 +27,7 @@ import { showShortcuts, showTutorial, showAbout, showClaudeHelp } from './help.j
 import { checkForUpdate } from './update.js';
 import { importSpriteScript } from './sprites.js';
 import { discordSettings, setDiscord, discordAvailable } from './discord.js';
+import { showMcpSetup } from './mcp.js';
 import { layout, toggleLayout, setUiScale, resetLayout } from './layout.js';
 
 const TABS = [
@@ -369,7 +370,10 @@ function groups(tab) {
       ];
     case 'aide':
       return [
-        { title: 'Claude', items: [B('wand', 'Demander à Claude', showClaudeHelp, { tip: 'Faire créer une animation par Claude et la coller ici' })] },
+        { title: 'Claude', items: [
+          B('wand', 'Demander à Claude', showClaudeHelp, { tip: 'Faire créer une animation par Claude et la coller ici' }),
+          B('plug', 'Connecter Claude Desktop', showMcpSetup, { tip: 'Laisser Claude Desktop piloter Animotion' }),
+        ] },
         { title: 'Aide', items: [B('keyboard', 'Raccourcis', showShortcuts, { tip: 'F1' }), B('book', 'Tutoriel', showTutorial), B('info', 'À propos', showAbout), B('import', 'Mises à jour', () => checkForUpdate(false))] },
         { title: 'Discord', items: [
           B('discord', discordSettings.enabled ? 'Statut Discord' : 'Discord coupé', () => setDiscord('enabled', !discordSettings.enabled), {

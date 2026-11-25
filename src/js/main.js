@@ -16,6 +16,7 @@ import { checkForUpdate, showWhatsNew } from './update.js';
 import { initRecovery, checkRecovery } from './recovery.js';
 import { importSpriteScript } from './sprites.js';
 import { initDiscord } from './discord.js';
+import { initMcp } from './mcp.js';
 
 // Glisser-déposer : un .js ou .json de sprites, ou un projet .animo
 document.addEventListener('dragover', (e) => e.preventDefault());
@@ -38,6 +39,7 @@ if (accent) A.setAccent(accent);
 initLayout();
 initRecovery();
 initDiscord();
+initMcp();
 initRibbon();
 initPanels();
 initTimeline();

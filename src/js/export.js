@@ -11,8 +11,12 @@ const base = () => (app.fileName && app.fileName !== 'Sans titre' ? app.fileName
 const bg = () => (app.render.transparent ? null : app.render.bg);
 const frameCanvas = (i, forceBg = null) => compositeFrame(app.doc, i, app.render.scale, forceBg || bg());
 
+// Chemin imposé (ex. demandé par Claude) : pas de boîte de dialogue
+let target = null, lastSaved = null, lastError = null;
+
 async function save(bytes, name, label, ext) {
-  const p = await saveFile(bytes, name, [{ name: label, extensions: [ext] }]);
+  const p = await saveFile(bytes, name, [{ name: label, extensions: [ext] }], target);
+  lastSaved = p;
   if (p) toast(`Exporté : ${name.split('.').pop().toUpperCase()} ✔`, 'ok');
 }
 
@@ -23,10 +27,25 @@ async function guarded(title, fn) {
     await fn(pr);
   } catch (err) {
     console.error(err);
+    lastError = err;
     toast('Erreur pendant l’export : ' + (err.message || err), 'error', 5000);
   } finally {
     pr.close();
   }
+}
+
+/** Lance un export vers un chemin précis (sans dialogue). Renvoie le chemin écrit, ou lève l'erreur. */
+export async function exportTo(path, fn) {
+  target = path;
+  lastSaved = null;
+  lastError = null;
+  try {
+    await fn();
+  } finally {
+    target = null;
+  }
+  if (lastError) throw lastError;
+  return lastSaved;
 }
 
 export function exportPNG() {

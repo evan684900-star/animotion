@@ -495,3 +495,14 @@ body.resizing.h { cursor: row-resize !important; }
 .claude-help textarea:focus { border-color: var(--accent); }
 .claude-help .ch-prompt { min-height: 120px; color: var(--muted); }
 .ch-error { color: var(--danger); margin: 0; font-size: 12.5px; min-height: 1em; }
+
+/* ------------------------------------------------ Claude pilote Animotion */
+.mcp-badge {
+  position: fixed; top: 46px; left: 50%; transform: translate(-50%, -8px); z-index: 150; pointer-events: none;
+  display: flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px; font-size: 12.5px;
+  background: var(--panel2); border: 1px solid var(--accent-strong); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  opacity: 0; transition: opacity 0.2s, transform 0.2s;
+}
+.mcp-badge.show { opacity: 1; transform: translate(-50%, 0); }
+.mcp-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: pulse 1s infinite alternate; }
+@keyframes pulse { from { opacity: 0.4; } }
