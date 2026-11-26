@@ -74,7 +74,10 @@ export function refreshUI() {
 // Crochets remplis par d'autres modules (évite les imports circulaires au chargement)
 export const hooks = {
   commitPending: () => {},
+  montage: null, // rempli par montage/index.js : { isOpen, dirty, name, save, close… }
 };
+/** Le mode montage est-il affiché ? */
+export const montageOpen = () => !!hooks.montage?.isOpen();
 
 export const curLayer = () => app.doc.layers[app.layerIndex];
 export const curFrame = () => app.doc.frames[app.frameIndex];

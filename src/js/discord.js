@@ -1,5 +1,5 @@
 // Discord Rich Presence : « Joue à Animotion » sur le profil Discord
-import { app, on, store, refreshUI } from './state.js';
+import { app, on, store, refreshUI, hooks, montageOpen } from './state.js';
 import { isTauri } from './platform.js';
 import { toast } from './dialogs.js';
 
@@ -19,6 +19,15 @@ export const discordAvailable = () => isTauri && !!DISCORD_APP_ID;
 let lastSent = '', lastTime = 0, timer = null;
 
 function presence() {
+  if (montageOpen()) {
+    const m = hooks.montage, i = m.info();
+    const name = m.name() || 'un montage';
+    const mins = Math.floor(i.duration / 60), secs = Math.round(i.duration % 60);
+    return {
+      details: (discordSettings.showName ? `Monte « ${name} »` : 'Monte une vidéo').slice(0, 120),
+      state: i.playing ? '▶ Regarde son montage' : `Montage ${i.width}×${i.height} · ${i.clips} clip${i.clips > 1 ? 's' : ''} · ${mins}:${String(secs).padStart(2, '0')}`,
+    };
+  }
   const d = app.doc;
   const onStart = !document.getElementById('startScreen').classList.contains('hidden');
   if (!d || onStart) return { details: 'Sur l’écran d’accueil', state: 'Choisit quoi animer ✨' };

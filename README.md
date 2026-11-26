@@ -1,9 +1,10 @@
 # Animotion
 
-Logiciel d'animation image par image pour Windows (.exe), en **noir et bleu**, avec deux modes :
+Logiciel d'animation image par image pour Windows (.exe), en **noir et bleu**, avec trois modes :
 
 - **Dessin** : animation vectorielle avec des traits lisses qu'on peut modifier après coup (on déplace leurs points).
 - **Pixel art** : une vraie grille de pixels, à la taille de ton choix.
+- **Montage** : un vrai logiciel de montage vidéo multipiste (voir plus bas).
 
 ## Télécharger le .exe
 
@@ -60,11 +61,25 @@ Pour faire créer une animation complète par Claude, vois [docs/FORMAT-ANIMO.md
 
 Les caractères `.`, espace, `_`, `-` et `0` sont transparents par défaut. Le script s'exécute dans un bac à sable isolé : il n'a accès ni à l'appli ni à tes fichiers.
 
+## Mode Montage 🎬
+
+Choisis **Montage** sur l'écran d'accueil (formats 16:9, 9:16 TikTok/Reels, 1:1, 4:5, 4:3, 21:9), ou clique sur **Fichier › Envoyer au montage** depuis une animation. Tu peux aussi glisser directement une vidéo ou une musique sur la fenêtre.
+
+- **Médias** : vidéos (MP4, WebM, MOV…), images, GIF animés, musiques et sons, voix off enregistrée au micro, tes animations Animotion (.animo ou celle en cours)
+- **Timeline multipiste** : pistes vidéo, superpositions, textes, effets et audio en nombre illimité · couper (S), rogner par les bords, déplacer d'une piste à l'autre, dupliquer, copier/coller, supprimer et resserrer · aimantation · marqueurs · zoom · pistes muettes, masquées ou verrouillées
+- **Aperçu interactif** : déplace, agrandis et tourne les clips directement sur l'image, avec des guides magnétiques · grille des tiers et zones de sécurité · plein écran
+- **Par clip** : vitesse ×0,1 à ×10, volume jusqu'à 300 %, fondus du son, extraire l'audio, figer l'image, position/taille/rotation/opacité/miroir, recadrage, ajustement (contenir, remplir, étirer), 12 animations d'entrée et de sortie, mouvement de caméra (effet Ken Burns), 16 modes de fusion, incrustation fond vert avec pipette
+- **Texte** : 10 styles prêts (titre, sous-titre, néon, gaming, BD, machine à écrire…), polices, contour, ombre, lueur, fond, effet machine à écrire · plus de 100 stickers emoji · 7 formes · fonds de couleur
+- **15 filtres** (vif, vintage, noir et blanc, ciné, néon, rêve…) + luminosité, contraste, saturation, teinte, flou, sépia… · **20 effets** (tremblement, flash, glitch, VHS, grain de film, vignette, bandes ciné, zoom pulsé, miroir, pixelisation, neige, confettis, cœurs, étoiles…) · **12 transitions** (fondus, glissements, zoom, balayage, cercle, flou, tourbillon…)
+- **Fond flou** automatique derrière une vidéo (pratique en format vertical)
+- **Export** : vidéo **MP4** ou **WebM avec le son** (résolution, images/s, qualité, passage choisi), **GIF** animé, **image PNG** de l'instant affiché
+- Annuler/rétablir illimité, copie de secours automatique, raccourcis clavier (F1 dans le montage)
+
 ## Fonctionnalités
 
 | Onglet | Contenu |
 |---|---|
-| **Fichier** | Nouveau, Ouvrir, Enregistrer (.animo), Récents, Importer une image ou une spritesheet, Exporter |
+| **Fichier** | Nouveau, Ouvrir, Enregistrer (.animo), Récents, Importer une image ou une spritesheet, Exporter, Envoyer au montage |
 | **Accueil** | Crayon/Pinceau, Gomme, Remplissage, Pipette, Ligne, Rectangle, Ellipse, Sélection · Couleurs · Annuler/Rétablir, Copier/Couper/Coller · Miroirs et rotations · Taille du pinceau |
 | **Calques** | Nouveau, Dupliquer, Supprimer, Fusionner, Ordre, Renommer, Visibilité, Verrou, Opacité |
 | **Animation** | Ajouter/Dupliquer/Supprimer/Déplacer des frames, Lecture (boucle, ping-pong, une fois), FPS, Durée par frame, Pelure d'oignon |

@@ -6,6 +6,7 @@ import { createProject, openProject, getRecents } from './actions.js';
 import { isTauri } from './platform.js';
 import { toast } from './dialogs.js';
 import { importSpriteScript } from './sprites.js';
+import { FORMATS } from './montage/model.js';
 
 const root = document.getElementById('startScreen');
 
@@ -69,7 +70,8 @@ export function showStart(cancellable = false) {
   };
   cards.append(
     mk('vector', 'brush', 'Dessin', 'Animation vectorielle : traits lisses, modifiables après coup, zoom infini. Idéal pour du dessin animé.', ['Vectoriel', 'Courbes éditables', 'HD']),
-    mk('pixel', 'pixel', 'Pixel art', 'Animation pixel par pixel sur une vraie grille, à la taille que tu veux. Parfait pour des sprites de jeu.', ['Grille', 'Taille libre', 'Sprites'])
+    mk('pixel', 'pixel', 'Pixel art', 'Animation pixel par pixel sur une vraie grille, à la taille que tu veux. Parfait pour des sprites de jeu.', ['Grille', 'Taille libre', 'Sprites']),
+    mk('montage', 'clap', 'Montage', 'Montage vidéo multipiste : vidéos, musique, textes, transitions, effets, filtres… puis export MP4.', ['Vidéo', 'Multipiste', 'MP4'])
   );
   wrap.appendChild(cards);
 
@@ -104,6 +106,7 @@ export function showStart(cancellable = false) {
   requestAnimationFrame(drawBeam);
 
   function config(mode) {
+    if (mode === 'montage') return montageConfig();
     const presets = SIZE_PRESETS[mode];
     const def = mode === 'pixel' ? [32, 32] : [1280, 720];
     const panel = el('div', 'start-config');
@@ -148,5 +151,43 @@ export function showStart(cancellable = false) {
     wrap.appendChild(panel);
     requestAnimationFrame(drawBeam);
     setTimeout(() => wI.focus(), 30);
+  }
+
+  function montageConfig() {
+    let fmt = FORMATS[0];
+    const panel = el('div', 'start-config');
+    panel.innerHTML = `
+      <button class="btn ghost back">${icon('left', 16)} Retour</button>
+      <div class="cfg-title">${icon('clap', 28)}<h2>Nouveau montage vidéo</h2></div>
+      <div class="cfg-formats"></div>
+      <div class="cfg-row">
+        <label><span>Images par seconde</span><select name="fps"><option value="24">24 (cinéma)</option><option value="25">25</option><option value="30" selected>30 (standard)</option><option value="50">50</option><option value="60">60 (fluide)</option></select></label>
+      </div>
+      <p class="cfg-hint">Tu pourras changer le format à tout moment dans les réglages du projet (panneau de droite).</p>
+      <button class="btn primary big create">Créer le montage ${icon('right', 16)}</button>`;
+    const grid = panel.querySelector('.cfg-formats');
+    for (const f of FORMATS) {
+      const [name, w, h, desc] = f;
+      const k = 30 / Math.max(w, h);
+      const b = el('button', 'cfg-format' + (f === fmt ? ' active' : ''), `<i style="--w:${Math.round(w * k)}px;--h:${Math.round(h * k)}px"></i><div><b>${name}</b><span>${escapeHtml(desc)}</span></div>`);
+      b.title = `${w} × ${h} px`;
+      b.onclick = () => {
+        fmt = f;
+        grid.querySelectorAll('.cfg-format').forEach((x) => x.classList.toggle('active', x === b));
+      };
+      b.ondblclick = () => go();
+      grid.appendChild(b);
+    }
+    const go = async () => {
+      const { openMontage } = await import('./montage/index.js');
+      if (await openMontage(null, { width: fmt[1], height: fmt[2], fps: +panel.querySelector('[name=fps]').value })) {
+        toast(`Nouveau montage ${fmt[0]} prêt ! Importe tes vidéos, images et musiques 🎬`);
+      }
+    };
+    panel.querySelector('.back').onclick = () => showStart(cancellable);
+    panel.querySelector('.create').onclick = go;
+    wrap.innerHTML = '';
+    wrap.appendChild(panel);
+    requestAnimationFrame(drawBeam);
   }
 }

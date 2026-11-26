@@ -144,6 +144,7 @@ function groups(tab) {
         })] },
         { title: 'Importer', items: [B('image', 'Image', A.importImage), B('sheet', 'Spritesheet', A.importSpritesheet), B('wand', 'Depuis Claude', showClaudeHelp, { tip: 'Coller une animation créée par Claude' }), B('code', 'Script .js', () => importSpriteScript(), { tip: 'Sprites décrits en texte, ex. ["..##..", ".####."] — ou glisse le fichier sur la fenêtre' })] },
         { title: 'Exporter', items: [B('export', 'Exporter…', () => showExportDialog(), { tip: 'Ctrl+E' }), B('gif', 'GIF animé', () => showExportDialog('gif'))] },
+        { title: 'Montage', items: [B('clap', 'Envoyer au montage', () => import('./montage/index.js').then((m) => m.sendToMontage()), { tip: 'Met cette animation dans un montage vidéo : musique, textes, transitions, effets… puis export MP4' })] },
       ];
     case 'accueil':
       return [

@@ -48,6 +48,31 @@ export async function openFile(filters) {
   });
 }
 
+/** Ouvre plusieurs fichiers d'un coup. Renvoie [{ path, name, bytes }] */
+export async function openFiles(filters) {
+  if (isTauri) {
+    const paths = await T.dialog.open({ multiple: true, directory: false, filters });
+    if (!paths) return [];
+    const list = Array.isArray(paths) ? paths : [paths];
+    const out = [];
+    for (const p of list) out.push(await readPath(p));
+    return out;
+  }
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = filters.flatMap((f) => f.extensions.map((e) => '.' + e)).join(',');
+    input.onchange = async () => {
+      const out = [];
+      for (const f of input.files) out.push({ path: null, name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) });
+      resolve(out);
+    };
+    input.addEventListener('cancel', () => resolve([]));
+    input.click();
+  });
+}
+
 export async function setWindowTitle(t) {
   document.title = t;
   if (isTauri) {

@@ -1,5 +1,5 @@
 // Copie de secours automatique + récupération après plantage + avertissement à la fermeture
-import { app, on, refreshUI } from './state.js';
+import { app, on, refreshUI, hooks, montageOpen } from './state.js';
 import { isTauri } from './platform.js';
 import { Doc } from './doc.js';
 import { modal, toast } from './dialogs.js';
@@ -46,21 +46,32 @@ export async function clearRecovery() {
 
 // ---------------------------------------------------------- Sauvegarde de secours
 let timer = null, firstChange = 0, writing = false;
+// le projet actif : le montage s'il est ouvert, sinon le dessin
+const isDirty = () => (montageOpen() ? hooks.montage.dirty() : !!(app.doc && app.dirty));
+const activeName = () => (montageOpen() ? hooks.montage.name() : app.fileName);
+const saveActive = () => (montageOpen() ? hooks.montage.save() : saveProject());
 const DELAY = 4000, MAX_WAIT = 30000;
 
 export async function backupNow() {
   clearTimeout(timer);
   timer = null;
   firstChange = 0;
-  if (!app.doc || !app.dirty || writing) return;
+  if (!isDirty() || writing) return;
   writing = true;
   try {
-    commitFloating();
-    const bytes = new TextEncoder().encode(JSON.stringify(app.doc.serialize()));
-    await writeStore(bytes, {
-      fileName: app.fileName, filePath: app.filePath, mode: app.mode,
-      width: app.doc.width, height: app.doc.height, frames: app.doc.frames.length, time: Date.now(),
-    });
+    if (montageOpen()) {
+      const m = hooks.montage, info = m.info();
+      await writeStore(new TextEncoder().encode(JSON.stringify(m.snapshot())), {
+        fileName: m.name(), filePath: m.path(), mode: 'montage', width: info.width, height: info.height, clips: info.clips, time: Date.now(),
+      });
+    } else {
+      commitFloating();
+      const bytes = new TextEncoder().encode(JSON.stringify(app.doc.serialize()));
+      await writeStore(bytes, {
+        fileName: app.fileName, filePath: app.filePath, mode: app.mode,
+        width: app.doc.width, height: app.doc.height, frames: app.doc.frames.length, time: Date.now(),
+      });
+    }
     app.lastBackup = new Date();
     refreshUI();
   } catch (e) {
@@ -72,7 +83,7 @@ export async function backupNow() {
 
 // Après chaque modification : copie 4 s après la dernière action, et au moins toutes les 30 s si on dessine sans arrêt
 function schedule() {
-  if (!app.doc || !app.dirty) return;
+  if (!isDirty()) return;
   const now = Date.now();
   if (!firstChange) firstChange = now;
   clearTimeout(timer);
@@ -93,17 +104,21 @@ function ago(t) {
 export async function checkRecovery() {
   const meta = await readMeta();
   if (!meta) return false;
+  const isMontage = meta.mode === 'montage';
+  const what = isMontage
+    ? `Montage vidéo · ${meta.width} × ${meta.height} · ${meta.clips || 0} clip${meta.clips > 1 ? 's' : ''}`
+    : `${meta.mode === 'pixel' ? 'Pixel art' : 'Dessin'} · ${meta.width} × ${meta.height} · ${meta.frames} frame${meta.frames > 1 ? 's' : ''}`;
   const choice = await modal({
-    title: 'Dessin récupéré 🛟',
+    title: isMontage ? 'Montage récupéré 🛟' : 'Dessin récupéré 🛟',
     content: `<p>Animotion ne s’est pas fermé correctement la dernière fois, mais une copie de secours a été retrouvée :</p>
       <div class="recover-card">
         <b>${escapeHtml(meta.fileName || 'Sans titre')}</b>
-        <span>${meta.mode === 'pixel' ? 'Pixel art' : 'Dessin'} · ${meta.width} × ${meta.height} · ${meta.frames} frame${meta.frames > 1 ? 's' : ''}</span>
+        <span>${what}</span>
         <span>Dernière copie ${ago(meta.time)}</span>
       </div>`,
     buttons: [
       { label: 'Supprimer la copie', value: 'drop', danger: true },
-      { label: 'Récupérer mon dessin', value: 'restore', primary: true },
+      { label: isMontage ? 'Récupérer mon montage' : 'Récupérer mon dessin', value: 'restore', primary: true },
     ],
   });
   if (choice === 'drop') {
@@ -118,6 +133,13 @@ export async function checkRecovery() {
   }
   if (choice !== 'restore') return false; // fenêtre fermée : on garde la copie pour la prochaine fois
   try {
+    if (isMontage) {
+      const { openMontage } = await import('./montage/index.js');
+      if (!(await openMontage(JSON.parse(await readData()), { path: meta.filePath, name: meta.fileName }))) return false;
+      hooks.montage.setDirty(true);
+      toast('Montage récupéré ! Pense à l’enregistrer (Ctrl+S) 💾', 'ok', 5000);
+      return true;
+    }
     const doc = await Doc.load(JSON.parse(await readData()));
     setDoc(doc, { path: meta.filePath, name: meta.fileName });
     app.dirty = true; // pas encore enregistré dans le vrai fichier
@@ -134,7 +156,7 @@ export async function checkRecovery() {
 async function askBeforeClose() {
   return modal({
     title: 'Enregistrer avant de quitter ?',
-    content: `<p>Le projet <b>${escapeHtml(app.fileName)}</b> a des modifications non enregistrées.</p>`,
+    content: `<p>Le projet <b>${escapeHtml(activeName())}</b> a des modifications non enregistrées.</p>`,
     buttons: [
       { label: 'Annuler', value: null },
       { label: 'Ne pas enregistrer', value: 'discard', danger: true },
@@ -146,19 +168,19 @@ async function askBeforeClose() {
 export function initRecovery() {
   on('changed', schedule);
   // une copie quand on quitte la fenêtre des yeux (alt-tab…), au cas où
-  window.addEventListener('blur', () => app.dirty && backupNow());
+  window.addEventListener('blur', () => isDirty() && backupNow());
 
   if (isTauri) {
     const w = T.window.getCurrentWindow();
     w.onCloseRequested(async (event) => {
-      if (!app.doc || !app.dirty) {
+      if (!isDirty()) {
         await clearRecovery();
         return; // fermeture normale
       }
       event.preventDefault();
       const c = await askBeforeClose();
       if (c === 'save') {
-        if (await saveProject()) await w.destroy();
+        if (await saveActive()) await w.destroy();
       } else if (c === 'discard') {
         await clearRecovery();
         await w.destroy();
@@ -166,7 +188,7 @@ export function initRecovery() {
     });
   } else {
     window.addEventListener('beforeunload', (e) => {
-      if (app.dirty) {
+      if (isDirty()) {
         e.preventDefault();
         e.returnValue = '';
       }

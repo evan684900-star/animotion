@@ -1,5 +1,5 @@
 // Claude pilote Animotion (MCP) : exécution des actions reçues du pont `Animotion.exe --mcp`
-import { app, curLayer, refreshUI } from './state.js';
+import { app, curLayer, refreshUI, hooks } from './state.js';
 import { isTauri } from './platform.js';
 import * as A from './actions.js';
 import * as X from './export.js';
@@ -24,7 +24,10 @@ const need = (cond, msg) => {
 };
 const text = (t) => ({ content: [{ type: 'text', text: typeof t === 'string' ? t : JSON.stringify(t, null, 1) }] });
 const onStart = () => !document.getElementById('startScreen').classList.contains('hidden');
-const requireDoc = () => need(app.doc && !onStart(), 'Aucun projet ouvert : utilise new_project ou open_animo.');
+const requireDoc = () => {
+  need(!hooks.montage?.isOpen(), 'L’utilisateur est dans le mode Montage (montage vidéo) : les outils de dessin ne s’y appliquent pas. Demande-lui de revenir à l’accueil, ou crée/ouvre une animation avec new_project ou open_animo (le montage sera fermé).');
+  need(app.doc && !onStart(), 'Aucun projet ouvert : utilise new_project ou open_animo.');
+};
 const requireMode = (m) => need(app.doc.mode === m, m === 'pixel'
   ? 'Ce projet est en mode dessin vectoriel : utilise draw_shapes.'
   : 'Ce projet est en pixel art : utilise draw_pixels.');
@@ -54,6 +57,9 @@ function editableLayer(li) {
   return l;
 }
 function guardDirty(discard) {
+  if (hooks.montage?.dirty() && !discard) {
+    throw new UserError(`Le montage « ${hooks.montage.name()} » a des modifications non enregistrées. Demande à l'utilisateur de l'enregistrer (Ctrl+S dans le montage) ou s'il accepte de l'abandonner (puis rappelle avec discard_changes: true).`);
+  }
   if (app.doc && app.dirty && !onStart() && !discard) {
     throw new UserError(`Le projet « ${app.fileName} » a des modifications non enregistrées. Demande à l'utilisateur s'il faut l'enregistrer (save_project) ou l'abandonner (puis rappelle avec discard_changes: true).`);
   }
@@ -68,6 +74,10 @@ function show(fi, li) {
 
 function summary() {
   const d = app.doc;
+  if (hooks.montage?.isOpen()) {
+    const i = hooks.montage.info();
+    return { projet: null, ecran: 'montage', montage: { nom: hooks.montage.name(), largeur: i.width, hauteur: i.height, clips: i.clips, duree_s: +i.duration.toFixed(2), modifie: hooks.montage.dirty() }, conseil: 'L’utilisateur fait un montage vidéo. Pour dessiner, crée ou ouvre une animation avec new_project ou open_animo (le montage sera fermé).' };
+  }
   if (!d || onStart()) return { projet: null, ecran: 'accueil', conseil: 'Crée un projet avec new_project ou open_animo.' };
   return {
     nom: app.fileName,

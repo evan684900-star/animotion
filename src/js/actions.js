@@ -1,4 +1,4 @@
-import { app, curLayer, curFrame, refreshUI, emit, store, markDirty } from './state.js';
+import { app, curLayer, curFrame, refreshUI, emit, store, markDirty, hooks, montageOpen } from './state.js';
 import { Doc, newId } from './doc.js';
 import { structural, clearHistory } from './history.js';
 import { requestRender, fitView } from './view.js';
@@ -270,11 +270,13 @@ function tick(t) {
 
 // ------------------------------------------------------------ Projet / fichiers
 export function updateTitle() {
+  if (montageOpen()) return; // le montage gère son propre titre
   const name = app.doc ? app.fileName + (app.dirty ? ' •' : '') + ' — Animotion' : 'Animotion';
   setWindowTitle(name);
 }
 
 export function setDoc(doc, meta = {}) {
+  if (montageOpen()) hooks.montage.close(true);
   stopPlay();
   app.doc = doc;
   app.mode = doc.mode;
@@ -304,7 +306,7 @@ export function createProject(mode, w, h, fps) {
   toast(mode === 'pixel' ? `Nouvelle grille ${w} × ${h} prête, à tes pixels ! 👾` : `Nouveau dessin ${w} × ${h}, à tes crayons ! ✏️`);
 }
 
-async function confirmLoseChanges() {
+export async function confirmLoseChanges() {
   if (!app.doc || !app.dirty) return true;
   const c = await modal({
     title: 'Modifications non enregistrées',
@@ -318,6 +320,7 @@ async function confirmLoseChanges() {
   if (c === 'save') return saveProject();
   if (c === 'discard') {
     await clearRecovery();
+    app.dirty = false; // modifications abandonnées
     return true;
   }
   return false;
@@ -378,8 +381,15 @@ export async function openProject(path = null, given = null) {
     const f = given || (path ? await readPath(path) : await openFile([{ name: 'Projet Animotion', extensions: ['animo'] }]));
     if (!f) return;
     const obj = parseLooseJSON(new TextDecoder().decode(f.bytes));
+    const name = f.name.replace(/\.animo$/i, '');
+    if (obj?.mode === 'montage') {
+      const { openMontage } = await import('./montage/index.js');
+      if ((await openMontage(obj, { path: f.path, name })) && f.path) addRecent(f.path);
+      return;
+    }
+    if (montageOpen() && !(await hooks.montage.close())) return;
     const doc = await Doc.load(obj);
-    setDoc(doc, { path: f.path, name: f.name.replace(/\.animo$/i, '') });
+    setDoc(doc, { path: f.path, name });
     if (f.path) addRecent(f.path);
     toast('Projet ouvert 📂', 'ok');
   } catch (err) {
@@ -389,7 +399,7 @@ export async function openProject(path = null, given = null) {
 }
 
 export const getRecents = () => (store('recent') || []).filter(Boolean);
-function addRecent(path) {
+export function addRecent(path) {
   store('recent', [path, ...getRecents().filter((p) => p !== path)].slice(0, 8));
 }
 function removeRecent(path) {

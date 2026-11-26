@@ -1,4 +1,4 @@
-import { app, on, emit, store, refreshUI } from './state.js';
+import { app, on, emit, store, refreshUI, montageOpen } from './state.js';
 import { resizeViewport, zoomStep, fitView, setZoom, requestRender, screenToDoc, toLocal } from './view.js';
 import * as Tl from './tools.js';
 import * as A from './actions.js';
@@ -25,6 +25,17 @@ document.addEventListener('drop', async (e) => {
   e.preventDefault();
   const f = e.dataTransfer?.files?.[0];
   if (!f || isModalOpen()) return;
+  // mode montage : tous les fichiers deviennent des médias (sauf un autre projet de montage)
+  if (montageOpen()) {
+    const { dropFiles } = await import('./montage/index.js');
+    if (e.dataTransfer.files.length === 1 && f.name.toLowerCase().endsWith('.animo')) {
+      const file = { path: null, name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) };
+      try {
+        if (JSON.parse(new TextDecoder().decode(file.bytes)).mode === 'montage') return A.openProjectBytes(file);
+      } catch {}
+    }
+    return dropFiles(e.dataTransfer.files);
+  }
   const name = f.name.toLowerCase();
   const file = { path: null, name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) };
   if (/\.(js|mjs|json|txt)$/.test(name)) importSpriteScript(file);
@@ -32,7 +43,11 @@ document.addEventListener('drop', async (e) => {
   else if (/\.(png|jpe?g|gif|webp|bmp)$/.test(name)) {
     if (!app.doc || !document.getElementById('startScreen').classList.contains('hidden')) return toast('Crée ou ouvre d’abord un projet, puis glisse ton image dessus 🖼️');
     A.importImage(file);
-  } else toast('Glisse une image, un fichier .js (sprites) ou un projet .animo');
+  } else if (/\.(mp4|webm|mov|m4v|mkv|ogv|avi|mp3|wav|ogg|oga|m4a|aac|flac|opus|weba)$/.test(name)) {
+    // une vidéo ou un son : on démarre un montage avec
+    const { openMontage, dropFiles } = await import('./montage/index.js');
+    if (await openMontage(null, {})) dropFiles(e.dataTransfer.files);
+  } else toast('Glisse une image, une vidéo, un son, un fichier .js (sprites) ou un projet .animo');
 });
 
 document.querySelector('.brand-logo').innerHTML = LOGO;
@@ -136,6 +151,7 @@ window.addEventListener('keydown', (e) => {
     setUiScale(e.key === '0' || e.key === ')' ? 1 : layout.ui + (e.key === '-' || e.key === '_' ? -0.1 : 0.1));
     return;
   }
+  if (montageOpen()) return; // le montage a ses propres raccourcis
   if (e.key === 'F1' && (e.ctrlKey || e.metaKey)) {
     e.preventDefault();
     toggleLayout('ribbon');
