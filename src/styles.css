@@ -920,3 +920,9 @@ body.resizing.h { cursor: row-resize !important; }
 .upd-bubble:hover { filter: brightness(1.1); }
 .mt-head-ic { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 11px; }
 .mt-head-ic.free { background: transparent; color: var(--dim); border: 1px dashed var(--border2); }
+.mt-myf-add { border-style: dashed; color: var(--muted); }
+.mt-myf-add:hover { color: #fff; }
+.mt-myf-del { position: absolute; top: 3px; right: 4px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; background: rgba(0, 0, 0, 0.65); color: #fff; opacity: 0; }
+.mt-card:hover .mt-myf-del { opacity: 1; }
+.mt-myf-del:hover { background: var(--danger); }
+.mt-insp-sub b { color: var(--text); }

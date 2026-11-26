@@ -247,6 +247,12 @@ function clipPanel(c, count) {
     const co = section('Filtre et couleurs', false);
     select(co, 'Filtre', Object.entries(FILTERS).map(([k, f]) => [k, f.label]), () => c.filter.name, (v) => (c.filter.name = v));
     slider(co, 'Intensité du filtre', () => c.filter.amount, (v) => (c.filter.amount = v), 0, 100, 1, '%');
+    if (c.overlay) {
+      co.appendChild(el('p', 'mt-insp-sub', `🎨 Mon filtre : <b>${escapeHtml(c.overlay.name || 'image')}</b>`));
+      slider(co, 'Opacité du filtre', () => Math.round((c.overlay.opacity ?? 0.5) * 100), (v) => (c.overlay.opacity = v / 100), 0, 100, 1, '%');
+      select(co, 'Mélange', [['source-atop', 'Normal (image par-dessus)'], ['overlay', 'Incrustation'], ['soft-light', 'Lumière douce'], ['screen', 'Éclaircir (superposition)'], ['multiply', 'Produit (assombrir)'], ['color', 'Couleur'], ['hard-light', 'Lumière crue'], ['difference', 'Différence']], () => c.overlay.blend || 'source-atop', (v) => (c.overlay.blend = v));
+      button(co, '✕ Retirer mon filtre', () => { delete c.overlay; done(); render(); });
+    }
     const ad = c.adjust;
     slider(co, 'Luminosité', () => ad.brightness, (v) => (ad.brightness = v), 0, 200, 1, '%');
     slider(co, 'Contraste', () => ad.contrast, (v) => (ad.contrast = v), 0, 200, 1, '%');

@@ -292,7 +292,7 @@ function chromaKey(src, sx, sy, sw, sh, dw, dh, ch) {
 }
 
 // ---------------------------------------------------------- dessin d'un clip
-const offCv = makeCanvas(2, 2);
+const offCv = makeCanvas(2, 2), maskCv = makeCanvas(2, 2);
 /** mod : { local, alpha, dx, dy, scale, blur, clip(ctx) } — utilisé par les transitions */
 export function drawClip(ctx, c, t, W, H, mod = {}, bounds = null) {
   const local = mod.local ?? t - c.start;
@@ -324,10 +324,11 @@ export function drawClip(ctx, c, t, W, H, mod = {}, bounds = null) {
   ctx.scale(tf.flipH ? -1 : 1, tf.flipV ? -1 : 1);
   ctx.imageSmoothingEnabled = !s.pixel;
   ctx.filter = f.css;
-  if (c.chroma?.enabled || f.tint) {
-    // passage par une image intermédiaire : incrustation et/ou teinte
+  const ov = c.overlay && M.media.get(c.overlay.media)?.img;
+  if (c.chroma?.enabled || f.tint || ov) {
+    // passage par une image intermédiaire : incrustation, teinte et/ou filtre perso (image par-dessus)
     let img = c.chroma?.enabled ? chromaKey(s.src, sx, sy, sw, sh, dw, dh, c.chroma) : null;
-    if (f.tint) {
+    if (f.tint || ov) {
       const w = Math.max(1, Math.round(Math.min(dw, 1920))), h = Math.max(1, Math.round(Math.min(dh, 1920)));
       offCv.width = w;
       offCv.height = h;
@@ -335,10 +336,27 @@ export function drawClip(ctx, c, t, W, H, mod = {}, bounds = null) {
       o.imageSmoothingEnabled = !s.pixel;
       if (img) o.drawImage(img, 0, 0, w, h);
       else o.drawImage(s.src, sx, sy, sw, sh, 0, 0, w, h);
-      o.globalCompositeOperation = 'source-atop';
-      o.globalAlpha = f.tint[1];
-      o.fillStyle = f.tint[0];
-      o.fillRect(0, 0, w, h);
+      if (f.tint) {
+        o.globalCompositeOperation = 'source-atop';
+        o.globalAlpha = f.tint[1];
+        o.fillStyle = f.tint[0];
+        o.fillRect(0, 0, w, h);
+      }
+      if (ov) {
+        // l'image du filtre couvre le clip, mélangée selon son mode, sans dépasser de ses bords
+        if (maskCv.width !== w || maskCv.height !== h) { maskCv.width = w; maskCv.height = h; }
+        const mk = maskCv.getContext('2d');
+        mk.clearRect(0, 0, w, h);
+        mk.drawImage(offCv, 0, 0);
+        const iw = ov.naturalWidth || ov.width, ih = ov.naturalHeight || ov.height, k = Math.max(w / iw, h / ih);
+        o.globalAlpha = Math.max(0, Math.min(1, c.overlay.opacity ?? 0.5));
+        o.globalCompositeOperation = c.overlay.blend || 'source-atop';
+        o.drawImage(ov, (w - iw * k) / 2, (h - ih * k) / 2, iw * k, ih * k);
+        o.globalAlpha = 1;
+        o.globalCompositeOperation = 'destination-in';
+        o.drawImage(maskCv, 0, 0);
+        o.globalCompositeOperation = 'source-over';
+      }
       img = offCv;
     }
     ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);

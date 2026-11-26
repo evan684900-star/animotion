@@ -4,6 +4,7 @@ import { addMedia, addAnimation, ALL_EXT, EXT, kindOf, parseAnimo } from './medi
 import { addMediaClip, addText, addSticker, addShape, addColor, addEffect, applyToSelection, TEXT_PRESETS, cuts, setTransitions } from './edit.js';
 import { TRANSITION_LIST, EFFECT_LIST, groupsOf, applyFx, applyTransition } from './fx.js';
 import { renderOnline, stopPreview } from './online.js';
+import { myFilters, createFilter, deleteFilter, applyFilter } from './myfilters.js';
 import { EFFECTS, TRANSITIONS, FILTERS } from './engine.js';
 import { openFiles } from '../platform.js';
 import { el, escapeHtml, makeCanvas } from '../util.js';
@@ -122,7 +123,7 @@ function media(body) {
   }
   body.appendChild(top);
   body.appendChild(el('p', 'mt-tip', 'Vidéos, images, GIF animés, sons et projets .animo. Tu peux aussi les glisser sur la fenêtre. Glisse un média sur une piste, ou clique sur ＋.'));
-  const list = M.project.media.filter((m) => m.kind !== 'audio');
+  const list = M.project.media.filter((m) => m.kind !== 'audio' && !m.myFilter);
   if (!list.length) body.appendChild(el('div', 'mt-empty', 'Aucun média pour l’instant 📭'));
   const grid = el('div', 'mt-media-grid');
   for (const m of list) grid.appendChild(mediaItem(m));
@@ -325,6 +326,21 @@ function filters(body) {
       applyToSelection((c) => { if (!['audio', 'effect'].includes(c.type)) c.filter = { name: k, amount: c.filter?.amount ?? 100 }; }, `Filtre « ${f.label} » appliqué 🎨`));
   }
   body.appendChild(grid);
+  // --- filtres perso : une image par-dessus le clip
+  heading(body, 'Mes filtres', 'Une image de ton choix (texture, poussière, lumière, dégradé…) posée sur le clip. Opacité et mélange réglables à droite.');
+  const mine = el('div', 'mt-cards');
+  const add = el('button', 'mt-card mt-myf-add', '<span class="mt-big">＋</span>Créer depuis une image');
+  add.onclick = async () => { if (await createFilter()) render(); };
+  mine.appendChild(add);
+  for (const f of myFilters()) {
+    const b = card(mine, `<span class="mt-filterprev" style="background:center/cover url('${f.data}')"></span>${escapeHtml(f.name)}`, `${f.name} — clique pour l’appliquer au clip sélectionné`, () => applyFilter(f));
+    const x = el('span', 'mt-myf-del', '✕');
+    x.title = 'Supprimer ce filtre';
+    x.onclick = (e) => { e.stopPropagation(); deleteFilter(f.id); render(); };
+    b.style.position = 'relative';
+    b.appendChild(x);
+  }
+  body.appendChild(mine);
 }
 
 function audio(body) {
