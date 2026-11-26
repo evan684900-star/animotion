@@ -23,7 +23,7 @@ function colorInput(value, onchange) {
 import { PALETTES, ACCENTS } from './palettes.js';
 import { toggleFullscreen, isTauri } from './platform.js';
 import { showShortcuts, showTutorial, showAbout, showClaudeHelp } from './help.js';
-import { checkForUpdate } from './update.js';
+import { checkForUpdate, showUpdateDot } from './update.js';
 import { importSpriteScript } from './sprites.js';
 import { discordSettings, setDiscord, discordAvailable } from './discord.js';
 import { showMcpSetup } from './mcp.js';
@@ -403,6 +403,7 @@ function renderTabs() {
   bar.innerHTML = '';
   for (const [id, label] of TABS) {
     const b = el('button', 'tab' + (id === current ? ' active' : '') + (id === 'fichier' ? ' file' : ''), label);
+    b.dataset.tab = id;
     b.onclick = () => {
       if (current === id && layout.ribbon) return;
       slideDir = Math.sign(TAB_IDS.indexOf(id) - TAB_IDS.indexOf(current));
@@ -417,6 +418,7 @@ function renderTabs() {
   // barre bleue qui glisse d'un onglet à l'autre
   if (!indicator) indicator = el('div', 'tab-indicator');
   bar.appendChild(indicator);
+  showUpdateDot();
   const animate = slideDir !== 0;
   requestAnimationFrame(() => moveIndicator(animate));
   let xb = document.getElementById('exportTop');

@@ -899,3 +899,22 @@ body.resizing.h { cursor: row-resize !important; }
 .mx-credits .link-btn { display: inline-flex; padding: 0 4px; }
 .mt-credits p { margin: 0 0 8px; }
 .mt-credits textarea { min-height: 120px; font-size: 12px; }
+/* point bleu « mise à jour disponible » (onglet Aide, et bouton du montage) */
+.has-update { position: relative; overflow: visible !important; }
+.upd-dot {
+  position: absolute; top: 3px; right: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg2), 0 0 8px var(--accent); animation: updPulse 1.6s ease-in-out infinite; pointer-events: none;
+}
+@keyframes updPulse { 50% { box-shadow: 0 0 0 2px var(--bg2), 0 0 14px 3px var(--accent); } }
+.upd-bubble {
+  position: absolute; top: calc(100% + 6px); left: 50%; z-index: 120; display: flex; flex-direction: column; gap: 2px;
+  padding: 7px 12px; border-radius: 10px; white-space: nowrap; font-size: 12px; font-weight: 500; text-align: left; cursor: pointer;
+  background: var(--accent); color: #fff; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  opacity: 0; transform: translate(-50%, -4px) scale(0.9); transform-origin: top center; pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.upd-bubble::before { content: ''; position: absolute; top: -5px; left: 50%; margin-left: -5px; border: 5px solid transparent; border-top: 0; border-bottom-color: var(--accent); }
+.upd-bubble::after { content: ''; position: absolute; left: 0; right: 0; top: -8px; height: 8px; }
+.upd-bubble em { font-style: normal; font-size: 11px; opacity: 0.85; }
+.has-update:hover .upd-bubble { opacity: 1; transform: translate(-50%, 0) scale(1); pointer-events: auto; }
+.upd-bubble:hover { filter: brightness(1.1); }

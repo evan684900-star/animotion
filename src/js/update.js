@@ -47,6 +47,11 @@ export async function checkForUpdate(silent = false) {
     if (!silent) toast(`Tu as déjà la dernière version (${cur}) ✨`, 'ok');
     return;
   }
+  // vérification discrète : un point bleu sur « Aide » au lieu d'une fenêtre qui interrompt
+  if (silent) {
+    showUpdateDot(latest.replace(/^v/, ''));
+    return;
+  }
   const choice = await modal({
     title: 'Mise à jour disponible 🎉',
     content: `<p>La version <b>${escapeHtml(latest.replace(/^v/, ''))}</b> est disponible (tu as la ${escapeHtml(cur)}).</p>
@@ -67,6 +72,34 @@ export async function checkForUpdate(silent = false) {
     pr.close();
     toast('La mise à jour a échoué : ' + e, 'error', 6000);
   }
+}
+
+// ---------------------------------------------------------- point bleu « mise à jour disponible »
+export let pendingUpdate = null;
+/** Ajoute le point bleu (et sa bulle au survol) sur l'onglet Aide et dans le mode Montage */
+export function showUpdateDot(version = pendingUpdate) {
+  if (!version) return;
+  pendingUpdate = version;
+  const targets = [document.querySelector('#tabbar .tab[data-tab="aide"]'), document.querySelector('#montage .mt-keys')].filter(Boolean);
+  for (const t of targets) {
+    if (t.querySelector('.upd-dot')) continue;
+    t.classList.add('has-update');
+    const dot = document.createElement('span');
+    dot.className = 'upd-dot';
+    const bubble = document.createElement('span');
+    bubble.className = 'upd-bubble';
+    bubble.innerHTML = `<span>🎉 Mise à jour disponible <b>v${escapeHtml(version)}</b></span><em>Clique pour l’installer</em>`;
+    bubble.onclick = (e) => {
+      e.stopPropagation();
+      checkForUpdate(false);
+    };
+    t.append(dot, bubble);
+  }
+}
+/** Vérification discrète au démarrage, puis toutes les 30 minutes */
+export function watchUpdates() {
+  checkForUpdate(true);
+  setInterval(() => !pendingUpdate && checkForUpdate(true), 30 * 60 * 1000);
 }
 
 // ---------------------------------------------------------- « Quoi de neuf ? » après une mise à jour

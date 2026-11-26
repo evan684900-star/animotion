@@ -12,7 +12,7 @@ import { showShortcuts, showTutorial } from './help.js';
 import { toggleFullscreen, portableReady } from './platform.js';
 import { LOGO } from './icons.js';
 import { initLayout, toggleLayout, setUiScale, layout } from './layout.js';
-import { checkForUpdate, showWhatsNew } from './update.js';
+import { watchUpdates, showWhatsNew } from './update.js';
 import { initRecovery, checkRecovery } from './recovery.js';
 import { importSpriteScript } from './sprites.js';
 import { initDiscord } from './discord.js';
@@ -239,9 +239,8 @@ setTimeout(async () => {
   const recovered = await checkRecovery();
   if (!store('tutoDone')) {
     if (!recovered) await showTutorial();
-    return;
-  }
-  if (!(await showWhatsNew())) checkForUpdate(true);
+  } else await showWhatsNew();
+  watchUpdates();
 }, 500);
 
 // accès debug / tests

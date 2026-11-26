@@ -20,6 +20,7 @@ import { showStart, hideStart } from '../start.js';
 import { clearRecovery } from '../recovery.js';
 import { confirmLoseChanges, addRecent, openProject } from '../actions.js';
 import { updateDiscord } from '../discord.js';
+import { showUpdateDot } from '../update.js';
 
 let root = null, cv, ctx, ov, octx, frameBox, stageBox, controls, nameInput, fmtBtn, dirtyDot, undoBtn, redoBtn;
 let bounds = [], drag = null, guides = {}, showThirds = false, showSafe = false;
@@ -625,6 +626,7 @@ export async function openMontage(obj = null, meta = {}) {
   resetHistory();
   hideStart();
   root.classList.remove('hidden');
+  showUpdateDot();
   document.body.classList.add('montage-on');
   emitChange('all');
   if (project.media.length) {
