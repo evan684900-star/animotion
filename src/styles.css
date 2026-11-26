@@ -926,3 +926,9 @@ body.resizing.h { cursor: row-resize !important; }
 .mt-card:hover .mt-myf-del { opacity: 1; }
 .mt-myf-del:hover { background: var(--danger); }
 .mt-insp-sub b { color: var(--text); }
+.upd-start {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 7px 16px; border-radius: 20px; cursor: pointer;
+  background: var(--accent-soft); border: 1px solid var(--accent); color: var(--text); font-size: 13px;
+}
+.upd-start:hover { background: var(--accent); color: #fff; }
+.upd-dot-inline { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: updPulse 1.6s ease-in-out infinite; }

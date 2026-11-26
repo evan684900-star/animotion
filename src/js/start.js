@@ -6,6 +6,7 @@ import { createProject, openProject, getRecents } from './actions.js';
 import { isTauri } from './platform.js';
 import { toast } from './dialogs.js';
 import { importSpriteScript } from './sprites.js';
+import { showUpdateDot } from './update.js';
 import { FORMATS } from './montage/model.js';
 
 const root = document.getElementById('startScreen');
@@ -103,6 +104,7 @@ export function showStart(cancellable = false) {
     wrap.appendChild(r);
   }
   root.appendChild(wrap);
+  showUpdateDot();
   requestAnimationFrame(drawBeam);
 
   function config(mode) {

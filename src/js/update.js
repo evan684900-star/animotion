@@ -80,6 +80,15 @@ export let pendingUpdate = null;
 export function showUpdateDot(version = pendingUpdate) {
   if (!version) return;
   pendingUpdate = version;
+  // écran d'accueil (il recouvre les onglets) : un bouton visible tout de suite
+  const start = document.querySelector('#startScreen .start-head');
+  if (start && !start.querySelector('.upd-start')) {
+    const b = document.createElement('button');
+    b.className = 'upd-start';
+    b.innerHTML = `<span class="upd-dot-inline"></span>Mise à jour disponible : <b>v${escapeHtml(version)}</b> — cliquer pour installer`;
+    b.onclick = () => checkForUpdate(false);
+    start.appendChild(b);
+  }
   const targets = [document.querySelector('#tabbar .tab[data-tab="aide"]'), document.querySelector('#montage .mt-keys')].filter(Boolean);
   for (const t of targets) {
     if (t.querySelector('.upd-dot')) continue;
