@@ -112,6 +112,58 @@ async fn install_update(app: tauri::AppHandle, url: String) -> Result<(), String
     }
 }
 
+// ------------------------------------------------------------------ Mode portable
+// Si Animotion est lancé depuis un autre disque que celui de Windows (clé USB, disque externe…),
+// tout est rangé dans un dossier « Animotion » à côté de l'exe : projets, exports, médias du montage,
+// copies de secours et réglages. On peut aussi forcer ce mode en créant soi-même ce dossier.
+pub struct Portable {
+    root: std::path::PathBuf,
+    created: bool,
+}
+const PORTABLE_DIRS: [&str; 5] = ["Projets", "Exports", "Médias du montage", "Secours", "Réglages (ne pas toucher)"];
+
+fn portable_root() -> Option<&'static Portable> {
+    static P: std::sync::OnceLock<Option<Portable>> = std::sync::OnceLock::new();
+    P.get_or_init(|| {
+        let exe = std::env::current_exe().ok()?;
+        let dir = exe.parent()?.to_path_buf();
+        let root = dir.join("Animotion");
+        let path = exe.to_string_lossy().trim_start_matches(r"\\?\").to_uppercase();
+        let system = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into()).to_uppercase();
+        let elsewhere = cfg!(windows) && !path.starts_with(&system);
+        if !elsewhere && !root.is_dir() {
+            return None;
+        }
+        let created = !root.is_dir();
+        for d in PORTABLE_DIRS {
+            if std::fs::create_dir_all(root.join(d)).is_err() {
+                return None; // clé en lecture seule : on reste en mode normal
+            }
+        }
+        let readme = root.join("LISEZ-MOI.txt");
+        if !readme.exists() {
+            let _ = std::fs::write(
+                &readme,
+                "Animotion est en mode portable : tout est rangé ici, sur la clé (ou le disque externe).\r\n\r\n\
+                 Projets : tes projets .animo (dessins, pixel art, montages)\r\n\
+                 Exports : les vidéos, GIF et images exportés\r\n\
+                 Médias du montage : les copies des vidéos, sons et images glissés dans un montage\r\n\
+                 Secours : la copie de secours automatique (en cas de plantage)\r\n\
+                 Réglages : les préférences de l'appli (ne pas modifier)\r\n\r\n\
+                 Pour revenir au mode normal sur un PC, copie Animotion.exe sur le disque C:.\r\n",
+            );
+        }
+        Some(Portable { root, created })
+    })
+    .as_ref()
+}
+
+/// Dossier du mode portable (ou null en mode normal), et s'il vient d'être créé
+#[tauri::command]
+fn portable_info() -> Option<serde_json::Value> {
+    portable_root().map(|p| serde_json::json!({ "root": p.root.to_string_lossy(), "created": p.created }))
+}
+
 // ------------------------------------------------------------------ Médias en ligne
 /// Télécharge un média libre de droits (image, GIF, son) trouvé sur Openverse.
 /// Passe par Rust car beaucoup de sites refusent les téléchargements faits depuis une page web (CORS).
@@ -156,7 +208,10 @@ async fn download_url(url: String) -> Result<Response, String> {
 
 fn recovery_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     use tauri::Manager;
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("secours");
+    let dir = match portable_root() {
+        Some(p) => p.root.join("Secours"),
+        None => app.path().app_data_dir().map_err(|e| e.to_string())?.join("secours"),
+    };
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
 }
@@ -297,6 +352,13 @@ fn main() {
         .manage(mcp::McpState::default())
         .setup(|app| {
             mcp::start_server(app.handle().clone());
+            // la fenêtre est créée ici pour pouvoir ranger les réglages sur la clé en mode portable
+            let cfg = app.config().app.windows.first().cloned().ok_or("fenêtre absente de la configuration")?;
+            let mut win = tauri::WebviewWindowBuilder::from_config(app.handle(), &cfg)?;
+            if let Some(p) = portable_root() {
+                win = win.data_directory(p.root.join(PORTABLE_DIRS[4]));
+            }
+            win.build()?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -304,6 +366,7 @@ fn main() {
             read_file,
             install_update,
             download_url,
+            portable_info,
             recovery_write,
             recovery_meta,
             recovery_read,

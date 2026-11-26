@@ -17,6 +17,15 @@ Liens fixes, toujours vers la dernière version (recompilée automatiquement à 
 
 **Mises à jour automatiques** : au démarrage, Animotion regarde s'il existe une version plus récente sur GitHub et propose de l'installer en un clic (téléchargement, remplacement de l'exe, redémarrage). Tu peux aussi vérifier à la main dans Aide › Mises à jour.
 
+## Mode portable (clé USB, disque externe) 🔌
+
+Lance `Animotion.exe` depuis une clé USB ou un disque externe : l'appli s'en rend compte toute seule (elle n'est pas sur le disque de Windows) et crée un dossier **Animotion** à côté de l'exe, où tout est rangé :
+
+- `Projets` : tes projets .animo · `Exports` : vidéos, GIF et images exportés · `Médias du montage` : les copies des fichiers glissés dans un montage
+- `Secours` : la copie de secours automatique · `Réglages` : les préférences de l'appli
+
+Sur un autre PC, la clé peut changer de lettre (`E:` → `F:`) : les montages retrouvent quand même leurs vidéos. Pour forcer ce mode ailleurs, il suffit de créer un dossier `Animotion` à côté de l'exe.
+
 ## Interface redimensionnable
 
 - Glisse les bords de la barre d'outils, du panneau de droite, de la timeline et de la colonne des calques (double-clic pour revenir à la taille par défaut).

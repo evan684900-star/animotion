@@ -5,9 +5,23 @@ import { baseName } from './util.js';
 const T = window.__TAURI__;
 export const isTauri = !!(T && T.core);
 
+// ---------------------------------------------------------- mode portable (clé USB, disque externe)
+/** { root, created } quand Animotion tourne hors du disque de Windows, sinon null */
+export let portable = null;
+export const portableReady = isTauri
+  ? T.core.invoke('portable_info').then((p) => (portable = p || null)).catch(() => null)
+  : Promise.resolve(null);
+const sep = (p) => (p.includes('\\') ? '\\' : '/');
+export const joinPath = (a, ...parts) => parts.reduce((acc, x) => acc.replace(/[\\/]+$/, '') + sep(a) + x, a);
+/** Dossier du mode portable : 'Projets', 'Exports', 'Médias du montage' ou 'Secours' */
+export const portableDir = (name) => (portable ? joinPath(portable.root, name) : null);
+const folderFor = (name) => (/\.animo$/i.test(name) ? 'Projets' : 'Exports');
+
 export async function saveFile(bytes, defaultName, filters, existingPath = null) {
   if (isTauri) {
-    const path = existingPath || (await T.dialog.save({ defaultPath: defaultName, filters }));
+    await portableReady;
+    const defaultPath = portable ? joinPath(portableDir(folderFor(defaultName)), defaultName) : defaultName;
+    const path = existingPath || (await T.dialog.save({ defaultPath, filters }));
     if (!path) return null;
     await T.core.invoke('write_file', bytes, { headers: { 'x-path': encodeURIComponent(path) } });
     return path;
@@ -30,7 +44,8 @@ export async function readPath(path) {
 
 export async function openFile(filters) {
   if (isTauri) {
-    const path = await T.dialog.open({ multiple: false, directory: false, filters });
+    await portableReady;
+    const path = await T.dialog.open({ multiple: false, directory: false, filters, ...(portable ? { defaultPath: portableDir('Projets') } : {}) });
     if (!path) return null;
     return readPath(Array.isArray(path) ? path[0] : path);
   }
@@ -51,7 +66,8 @@ export async function openFile(filters) {
 /** Ouvre plusieurs fichiers d'un coup. Renvoie [{ path, name, bytes }] */
 export async function openFiles(filters) {
   if (isTauri) {
-    const paths = await T.dialog.open({ multiple: true, directory: false, filters });
+    await portableReady;
+    const paths = await T.dialog.open({ multiple: true, directory: false, filters, ...(portable ? { defaultPath: portable.root } : {}) });
     if (!paths) return [];
     const list = Array.isArray(paths) ? paths : [paths];
     const out = [];

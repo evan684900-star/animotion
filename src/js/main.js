@@ -9,7 +9,7 @@ import { initTimeline } from './timeline.js';
 import { showStart } from './start.js';
 import { isModalOpen, toast } from './dialogs.js';
 import { showShortcuts, showTutorial } from './help.js';
-import { toggleFullscreen } from './platform.js';
+import { toggleFullscreen, portableReady } from './platform.js';
 import { LOGO } from './icons.js';
 import { initLayout, toggleLayout, setUiScale, layout } from './layout.js';
 import { checkForUpdate, showWhatsNew } from './update.js';
@@ -234,6 +234,8 @@ showStart();
 emit('ui');
 // Au démarrage : d'abord récupérer un éventuel dessin perdu, puis tutoriel ou nouveautés / mise à jour
 setTimeout(async () => {
+  const p = await portableReady;
+  if (p?.created) toast(`🔌 Mode portable activé : tes projets, exports, médias et copies de secours sont rangés dans ${p.root}`, 'ok', 8000);
   const recovered = await checkRecovery();
   if (!store('tutoDone')) {
     if (!recovered) await showTutorial();

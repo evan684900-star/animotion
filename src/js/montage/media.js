@@ -1,7 +1,7 @@
 // Mode Montage : import des médias (vidéo, audio, image, GIF animé, animation Animotion), miniatures, ondes sonores
 import { M, mediaById, emitChange } from './model.js';
 import { newId, Doc } from '../doc.js';
-import { isTauri, readPath } from '../platform.js';
+import { isTauri, readPath, portableReady, portableDir, joinPath } from '../platform.js';
 import { makeCanvas, ctx2d, loadImage, parseLooseJSON, bytesToDataURL } from '../util.js';
 import { compositeFrame } from '../render.js';
 
@@ -52,9 +52,10 @@ export async function addAnimation(obj, name) {
 }
 
 async function storeCopy(entry, bytes) {
-  const dir = await T.path.appDataDir();
+  await portableReady;
   const safe = entry.name.replace(/[\\/:*?"<>|]/g, '_');
-  const path = await T.path.join(dir, 'montage-medias', `${entry.id}_${safe}`);
+  // mode portable : les copies vont sur la clé, sinon dans les données de l'appli sur le PC
+  const path = portableDir('Médias du montage') ? joinPath(portableDir('Médias du montage'), `${entry.id}_${safe}`) : await T.path.join(await T.path.appDataDir(), 'montage-medias', `${entry.id}_${safe}`);
   await T.core.invoke('write_file', bytes, { headers: { 'x-path': encodeURIComponent(path) } });
   return path;
 }
@@ -217,7 +218,25 @@ export function gifFrame(rt, t, loop = true) {
 }
 
 // ---------------------------------------------------------- ouverture / enregistrement d'un projet
-export async function loadProjectMedia(project, onProgress) {
+/** Retrouve un média déplacé : autre lettre de lecteur (clé USB branchée sur un autre PC), dossier du projet, dossier portable… */
+async function findMoved(path, projectPath) {
+  const base = path.split(/[\\/]/).pop();
+  const tries = [];
+  const drive = (p) => (/^[a-z]:/i.test(p || '') ? p.slice(0, 2) : null);
+  if (drive(path) && drive(projectPath) && drive(path).toUpperCase() !== drive(projectPath).toUpperCase()) tries.push(drive(projectPath) + path.slice(2));
+  if (projectPath) {
+    const dir = projectPath.replace(/[\\/][^\\/]*$/, '');
+    tries.push(joinPath(dir, base), joinPath(dir, 'Médias du montage', base), joinPath(dir, '..', 'Médias du montage', base));
+  }
+  await portableReady;
+  if (portableDir('Médias du montage')) tries.push(joinPath(portableDir('Médias du montage'), base));
+  for (const p of tries) {
+    try { return await readPath(p); } catch {}
+  }
+  return null;
+}
+
+export async function loadProjectMedia(project, onProgress, projectPath = null) {
   let i = 0;
   for (const entry of project.media) {
     onProgress?.(i++ / Math.max(1, project.media.length), entry.name);
@@ -230,7 +249,14 @@ export async function loadProjectMedia(project, onProgress) {
       }
       let bytes = null;
       if (entry.data) bytes = new Uint8Array(await (await fetch(entry.data)).arrayBuffer());
-      else if (entry.path && isTauri) bytes = (await readPath(entry.path)).bytes;
+      else if (entry.path && isTauri) {
+        try {
+          bytes = (await readPath(entry.path)).bytes;
+        } catch {
+          const f = await findMoved(entry.path, projectPath);
+          if (f) { bytes = f.bytes; entry.path = f.path; }
+        }
+      }
       if (!bytes) throw new Error('introuvable');
       rt.bytes = bytes;
       await hydrate(entry, rt, bytes);

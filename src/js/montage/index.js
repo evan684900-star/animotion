@@ -629,7 +629,7 @@ export async function openMontage(obj = null, meta = {}) {
   emitChange('all');
   if (project.media.length) {
     const pr = progress('Ouverture du montage');
-    await loadProjectMedia(project, (q, name) => pr.set(q, `Chargement de ${name}…`));
+    await loadProjectMedia(project, (q, name) => pr.set(q, `Chargement de ${name}…`), meta.path || null);
     pr.close();
     const missing = project.media.filter((m) => M.media.get(m.id)?.missing);
     if (missing.length) toast(`⚠ ${missing.length} média${missing.length > 1 ? 's' : ''} introuvable${missing.length > 1 ? 's' : ''} (fichier déplacé ou supprimé) : ${missing.slice(0, 3).map((m) => m.name).join(', ')}`, 'error', 8000);
