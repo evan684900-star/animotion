@@ -1,6 +1,7 @@
 // Mode Montage : panneau de droite (réglages du clip sélectionné, ou du projet)
 import { M, selectedClips, mediaById, commit, emitChange, FORMATS, TRANSFORM, ADJUST, clipEnd, mediaLength } from './model.js';
 import { FILTERS, ANIMS, TRANSITIONS, EFFECTS } from './engine.js';
+import { TRANSITION_LIST, EFFECT_LIST, groupsOf, TRANSITION_BY_ID } from './fx.js';
 import { setSpeed, extractAudio, freezeFrame } from './edit.js';
 import { el, escapeHtml } from '../util.js';
 import { hooks } from '../state.js';
@@ -52,11 +53,19 @@ function check(parent, label, get, set) {
 }
 function select(parent, label, options, get, set, rerender = false) {
   const s = el('select');
-  for (const [v, t] of options) {
+  const opt = (parent, [v, t]) => {
     const o = el('option', null, escapeHtml(t));
     o.value = v;
     if (String(v) === String(get())) o.selected = true;
-    s.appendChild(o);
+    parent.appendChild(o);
+  };
+  for (const o of options) {
+    if (o.group) {
+      const g = el('optgroup');
+      g.label = o.group;
+      o.options.forEach((x) => opt(g, x));
+      s.appendChild(g);
+    } else opt(s, o);
   }
   s.onchange = () => { set(s.value); redraw(); done(); if (rerender) render(); };
   row(parent, label, s);
@@ -179,7 +188,7 @@ function clipPanel(c, count) {
   // --- Effet
   if (c.type === 'effect') {
     const f = section('Effet');
-    select(f, 'Type', Object.entries(EFFECTS).map(([k, [l, e]]) => [k, `${e} ${l}`]), () => c.effect.type, (v) => (c.effect.type = v));
+    select(f, 'Type', groupsOf(EFFECT_LIST).map(([g, list]) => ({ group: g, options: list.map((e) => [e.id, `${e.icon} ${e.label}`]) })), () => c.effect.type, (v) => { c.effect.type = v; c.name = v; });
     slider(f, 'Intensité', () => c.effect.intensity * 100, (v) => (c.effect.intensity = v / 100), 0, 100, 1, '%');
     f.appendChild(el('p', 'mt-tip', 'Un effet s’applique à tout ce qui se trouve sur les pistes en dessous de lui, pendant sa durée.'));
   }
@@ -230,7 +239,8 @@ function clipPanel(c, count) {
     }
     // --- Transition
     const tr = section('Transition d’entrée', false);
-    select(tr, 'Type', Object.entries(TRANSITIONS), () => c.transition.type, (v) => (c.transition.type = v));
+    select(tr, 'Type', [['none', 'Aucune'], ...groupsOf(TRANSITION_LIST).map(([g, list]) => ({ group: g, options: list.map((t) => [t.id, `${t.icon} ${t.label}`]) }))], () => c.transition.type,
+      (v) => { if (c.transition.type === 'none' && TRANSITION_BY_ID[v]) c.transition.duration = TRANSITION_BY_ID[v].dur; c.transition.type = v; });
     slider(tr, 'Durée', () => c.transition.duration, (v) => (c.transition.duration = v), 0.1, 3, 0.05, 's');
     tr.appendChild(el('p', 'mt-tip', 'La transition fait le lien avec le clip collé juste avant sur la même piste.'));
     // --- Couleur

@@ -1,10 +1,11 @@
 // Mode Montage : bibliothèque (médias, textes, stickers, formes, effets, transitions, filtres, audio)
 import { M, emitChange, selectedClips, commit, fmtTime, clipEnd } from './model.js';
 import { addMedia, addAnimation, ALL_EXT, EXT, kindOf, parseAnimo } from './media.js';
-import { addMediaClip, addText, addSticker, addShape, addColor, addEffect, applyToSelection, TEXT_PRESETS } from './edit.js';
+import { addMediaClip, addText, addSticker, addShape, addColor, addEffect, applyToSelection, TEXT_PRESETS, cuts, setTransitions } from './edit.js';
+import { TRANSITION_LIST, EFFECT_LIST, groupsOf, applyFx, applyTransition } from './fx.js';
 import { EFFECTS, TRANSITIONS, FILTERS } from './engine.js';
 import { openFiles } from '../platform.js';
-import { el, escapeHtml } from '../util.js';
+import { el, escapeHtml, makeCanvas } from '../util.js';
 import { toast, progress } from '../dialogs.js';
 import { app } from '../state.js';
 
@@ -160,22 +161,151 @@ function shapes(body) {
   body.appendChild(grid);
 }
 
+// ---------------------------------------------------------- effets et transitions : catégories, recherche, aperçus animés
+const PW = 160, PH = 90;
+let demoA = null, demoB = null;
+const query = { effect: '', transition: '' };
+let lastTransition = 'fondu';
+function demos() {
+  if (demoA) return;
+  demoA = makeCanvas(PW, PH);
+  demoB = makeCanvas(PW, PH);
+  // A : montagnes sous un ciel bleu
+  let x = demoA.getContext('2d'), g = x.createLinearGradient(0, 0, 0, PH);
+  g.addColorStop(0, '#1d4fa8'); g.addColorStop(1, '#7cc4ff');
+  x.fillStyle = g; x.fillRect(0, 0, PW, PH);
+  x.fillStyle = '#ffec27'; x.beginPath(); x.arc(122, 24, 11, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#1d2b53'; x.beginPath(); x.moveTo(0, PH); x.lineTo(42, 38); x.lineTo(72, 66); x.lineTo(104, 32); x.lineTo(PW, PH); x.fill();
+  x.fillStyle = '#e8f4ff'; x.beginPath(); x.moveTo(42, 38); x.lineTo(50, 46); x.lineTo(34, 46); x.fill(); x.beginPath(); x.moveTo(104, 32); x.lineTo(113, 41); x.lineTo(95, 41); x.fill();
+  // B : ville au coucher du soleil
+  x = demoB.getContext('2d'); g = x.createLinearGradient(0, 0, 0, PH);
+  g.addColorStop(0, '#ff77a8'); g.addColorStop(1, '#ffa300');
+  x.fillStyle = g; x.fillRect(0, 0, PW, PH);
+  x.fillStyle = 'rgba(255,250,220,.9)'; x.beginPath(); x.arc(46, 40, 16, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#5b1d4a';
+  for (let i = 0; i < 9; i++) { const h = 18 + ((i * 37) % 34); x.fillRect(i * 18 + 1, PH - h, 15, h); }
+  x.fillStyle = '#ffec27';
+  for (let i = 0; i < 9; i++) for (let j = 0; j < 3; j++) if ((i + j) % 3) x.fillRect(i * 18 + 5, PH - 12 - j * 7, 3, 3);
+}
+function preview(cv, kind, item, time) {
+  demos();
+  const x = cv.getContext('2d');
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  x.globalAlpha = 1;
+  x.globalCompositeOperation = 'source-over';
+  x.filter = 'none';
+  x.fillStyle = '#000';
+  x.fillRect(0, 0, PW, PH);
+  try {
+    if (kind === 'transition') {
+      const p = time === null ? 0.36 : Math.min(1, Math.max(0, ((time % 1.9) - 0.25) / 1.2));
+      applyTransition(x, item.id, demoA, demoB, p, PW, PH);
+    } else {
+      x.drawImage(demoA, 0, 0);
+      applyFx(x, item.id, 0.75, time === null ? 1.6 : time % 4, 4, PW, PH, { bg: '#000', fps: 30 });
+    }
+  } catch (e) {
+    console.warn('aperçu', item.id, e);
+  }
+}
+
+/** Grille d'effets ou de transitions, rangée par catégories, avec recherche et aperçu animé au survol */
+function fxBrowser(body, kind, list, onPick) {
+  const search = el('input', 'mt-search');
+  search.type = 'search';
+  search.placeholder = `🔎 Rechercher parmi ${list.length} ${kind === 'effect' ? 'effets' : 'transitions'}…`;
+  search.value = query[kind];
+  const zone = el('div', 'mt-fx-zone');
+  body.append(search, zone);
+  let anim = 0;
+  const fill = () => {
+    zone.innerHTML = '';
+    const q = query[kind].trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const norm = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const shown = list.filter((it) => !q || norm(it.label + ' ' + it.cat + ' ' + it.id).includes(q));
+    if (!shown.length) zone.appendChild(el('div', 'mt-empty', 'Rien trouvé 🤷'));
+    for (const [cat, items] of groupsOf(shown)) {
+      zone.appendChild(el('h4', 'mt-lib-h', `${escapeHtml(cat)} <span>${items.length}</span>`));
+      const grid = el('div', 'mt-fx-grid');
+      for (const it of items) {
+        const b = el('button', 'mt-fx');
+        b.title = `${it.label} — clique pour l’utiliser`;
+        const cv = el('canvas');
+        cv.width = PW;
+        cv.height = PH;
+        b.append(cv, el('span', null, `${it.icon} ${escapeHtml(it.label)}`));
+        preview(cv, kind, it, null);
+        b.onclick = () => onPick(it);
+        b.onmouseenter = () => {
+          cancelAnimationFrame(anim);
+          const t0 = performance.now();
+          const loop = () => {
+            preview(cv, kind, it, (performance.now() - t0) / 1000);
+            anim = requestAnimationFrame(loop);
+          };
+          loop();
+        };
+        b.onmouseleave = () => {
+          cancelAnimationFrame(anim);
+          preview(cv, kind, it, null);
+        };
+        grid.appendChild(b);
+      }
+      zone.appendChild(grid);
+    }
+  };
+  search.oninput = () => { query[kind] = search.value; fill(); };
+  search.onkeydown = (e) => e.stopPropagation();
+  fill();
+}
+
 function effects(body) {
-  heading(body, 'Effets', 'Un effet s’ajoute sur la piste Effets et agit sur tout ce qui est en dessous, pendant sa durée.');
-  const grid = el('div', 'mt-cards');
-  for (const [k, [label, ic]] of Object.entries(EFFECTS)) card(grid, `<span class="mt-big">${ic}</span>${label}`, label, () => addEffect(k));
-  body.appendChild(grid);
+  heading(body, `Effets (${EFFECT_LIST.length})`, 'Clique sur un effet pour l’ajouter à la tête de lecture : il agit sur tout ce qui est en dessous, pendant sa durée. Survole pour voir l’aperçu.');
+  fxBrowser(body, 'effect', EFFECT_LIST, (it) => {
+    addEffect(it.id);
+    toast(`Effet « ${it.label} » ajouté ${it.icon}`, 'ok');
+  });
 }
 
 function transitions(body) {
-  heading(body, 'Transitions', 'Sélectionne le clip qui ARRIVE (celui de droite à la coupure), puis choisis une transition.');
-  const grid = el('div', 'mt-cards');
-  const ics = { none: '🚫', fondu: '🌗', noir: '🌑', blanc: '⚪', 'glisser-gauche': '⬅️', 'glisser-droite': '➡️', 'glisser-haut': '⬆️', 'glisser-bas': '⬇️', zoom: '🔍', balayage: '🧹', cercle: '⭕', flou: '🌫️', tourbillon: '🌀' };
-  for (const [k, label] of Object.entries(TRANSITIONS)) {
-    card(grid, `<span class="mt-big">${ics[k] || '⇋'}</span>${label}`, label, () =>
-      applyToSelection((c) => { c.transition = { type: k, duration: c.transition?.duration || 0.6 }; }, k === 'none' ? 'Transition retirée' : `Transition « ${label} » appliquée ⇋`));
-  }
-  body.appendChild(grid);
+  heading(body, `Transitions (${TRANSITION_LIST.length})`, 'Sélectionne le clip qui ARRIVE (à droite de la coupure) puis clique sur une transition. Sans sélection, elle s’applique à toutes les coupures.');
+  const top = el('div', 'mt-lib-actions');
+  const rnd = el('button', 'btn', '🎲 Au hasard partout');
+  rnd.title = 'Une transition différente, tirée au sort, sur chaque coupure';
+  rnd.onclick = () => {
+    const list = cuts();
+    if (!list.length) return toast('Aucune coupure : mets deux clips bout à bout sur une piste vidéo');
+    setTransitions(list, () => { const t = TRANSITION_LIST[Math.floor(Math.random() * TRANSITION_LIST.length)]; return { type: t.id, duration: t.dur }; });
+    toast(`${list.length} transition${list.length > 1 ? 's' : ''} tirée${list.length > 1 ? 's' : ''} au sort 🎲`, 'ok');
+  };
+  const none = el('button', 'btn', '✖ Tout retirer');
+  none.onclick = () => {
+    const list = M.project.clips.filter((c) => c.transition?.type && c.transition.type !== 'none');
+    if (!list.length) return toast('Aucune transition à retirer');
+    setTransitions(list, () => null);
+    toast('Transitions retirées', 'ok');
+  };
+  const same = el('button', 'btn', '');
+  const label = () => { const t = TRANSITION_LIST.find((x) => x.id === lastTransition) || TRANSITION_LIST[0]; same.innerHTML = `⇋ ${t.icon} ${escapeHtml(t.label)} partout`; return t; };
+  label();
+  same.title = 'Met la dernière transition choisie sur toutes les coupures';
+  same.onclick = () => {
+    const t = label(), list = cuts();
+    if (!list.length) return toast('Aucune coupure : mets deux clips bout à bout sur une piste vidéo');
+    setTransitions(list, () => ({ type: t.id, duration: t.dur }));
+    toast(`${t.icon} « ${t.label} » sur toutes les coupures (${list.length})`, 'ok');
+  };
+  top.append(same, rnd, none);
+  body.appendChild(top);
+  fxBrowser(body, 'transition', TRANSITION_LIST, (t) => {
+    lastTransition = t.id;
+    label();
+    const sel = selectedClips().filter((c) => !['audio', 'effect'].includes(c.type));
+    const list = sel.length ? sel : cuts();
+    if (!list.length) return toast('Mets deux clips bout à bout sur une piste vidéo, puis choisis une transition');
+    setTransitions(list, (c) => ({ type: t.id, duration: c.transition?.type !== 'none' && c.transition?.duration ? c.transition.duration : t.dur }));
+    toast(`${t.icon} « ${t.label} » appliquée ${sel.length ? `à ${list.length} clip${list.length > 1 ? 's' : ''}` : `à toutes les coupures (${list.length})`}`, 'ok');
+  });
 }
 
 function filters(body) {

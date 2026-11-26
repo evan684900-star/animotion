@@ -83,6 +83,26 @@ export function addEffect(type) {
   return place(c, trackFor('effect').id, M.time);
 }
 
+/** Clips visuels collés juste après un autre clip de la même piste (là où une transition est possible) */
+export function cuts() {
+  const out = [];
+  for (const tr of M.project.tracks) {
+    if (tr.kind !== 'visual' || tr.locked) continue;
+    const list = clipsOn(tr.id);
+    for (let i = 1; i < list.length; i++) if (Math.abs(clipEnd(list[i - 1]) - list[i].start) < 0.08) out.push(list[i]);
+  }
+  return out;
+}
+/** Change la transition d'entrée de plusieurs clips : pick(c) renvoie { type, duration } ou null pour retirer */
+export function setTransitions(list, pick) {
+  for (const c of list) {
+    const t = pick(c);
+    c.transition = t ? { type: t.type, duration: t.duration } : { type: 'none', duration: c.transition?.duration || 0.6 };
+  }
+  commit();
+  return list.length;
+}
+
 /** Applique une transition (et/ou un filtre…) aux clips sélectionnés */
 export function applyToSelection(fn, msg) {
   const list = selectedClips();

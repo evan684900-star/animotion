@@ -2,6 +2,7 @@
 import { M, clipsOn, clipEnd, mediaById, trackById } from './model.js';
 import { animFrame, gifFrame } from './media.js';
 import { makeCanvas } from '../util.js';
+import { TRANSITION_LIST, TRANSITION_BY_ID, EFFECT_LIST, applyFx, applyTransition, layer } from './fx.js';
 
 export const hooks = { redraw: () => {}, onElement: () => {} };
 
@@ -347,244 +348,30 @@ export function drawClip(ctx, c, t, W, H, mod = {}, bounds = null) {
 }
 
 // ---------------------------------------------------------- transitions
-export const TRANSITIONS = {
-  none: 'Aucune', fondu: 'Fondu enchaîné', noir: 'Fondu au noir', blanc: 'Flash blanc', 'glisser-gauche': 'Glisser ←', 'glisser-droite': 'Glisser →',
-  'glisser-haut': 'Glisser ↑', 'glisser-bas': 'Glisser ↓', zoom: 'Zoom', balayage: 'Balayage', cercle: 'Cercle', flou: 'Flou', tourbillon: 'Tourbillon',
-};
+// ---------------------------------------------------------- transitions (bibliothèque dans fx.js)
+export const TRANSITIONS = { none: 'Aucune', ...Object.fromEntries(TRANSITION_LIST.map((t) => [t.id, t.label])) };
 function previousOf(c) {
   const list = clipsOn(c.track);
   const i = list.findIndex((x) => x.id === c.id);
   const prev = list[i - 1];
   return prev && Math.abs(clipEnd(prev) - c.start) < 0.08 ? prev : null;
 }
+/** Dessine le clip précédent (A) et le clip qui arrive (B) sur deux calques, puis les mélange */
 function drawTransition(ctx, c, t, W, H, bounds) {
-  const d = c.transition.duration, local = t - c.start, p = Math.max(0, Math.min(1, local / d));
+  const id = c.transition.type;
+  if (!TRANSITION_BY_ID[id]) return drawClip(ctx, c, t, W, H, {}, bounds);
+  const local = t - c.start, p = local / Math.max(0.01, c.transition.duration);
   const prev = previousOf(c);
-  const tail = prev ? { local: prev.duration + local } : null;
-  const drawPrev = (mod = {}) => prev && drawClip(ctx, prev, t, W, H, { ...tail, ...mod });
-  const e = easeInOut(p);
-  switch (c.transition.type) {
-    case 'fondu': drawPrev(); drawClip(ctx, c, t, W, H, { alpha: e }, bounds); break;
-    case 'noir':
-    case 'blanc': {
-      if (p < 0.5) drawPrev(); else drawClip(ctx, c, t, W, H, {}, bounds);
-      ctx.save();
-      ctx.globalAlpha = 1 - Math.abs(p - 0.5) * 2;
-      ctx.fillStyle = c.transition.type === 'noir' ? '#000' : '#fff';
-      ctx.fillRect(0, 0, W, H);
-      ctx.restore();
-      break;
-    }
-    case 'glisser-gauche': drawPrev({ dx: -e }); drawClip(ctx, c, t, W, H, { dx: 1 - e }, bounds); break;
-    case 'glisser-droite': drawPrev({ dx: e }); drawClip(ctx, c, t, W, H, { dx: e - 1 }, bounds); break;
-    case 'glisser-haut': drawPrev({ dy: -e }); drawClip(ctx, c, t, W, H, { dy: 1 - e }, bounds); break;
-    case 'glisser-bas': drawPrev({ dy: e }); drawClip(ctx, c, t, W, H, { dy: e - 1 }, bounds); break;
-    case 'zoom': drawPrev({ scale: 1 + e, alpha: 1 - e }); drawClip(ctx, c, t, W, H, { scale: 0.6 + 0.4 * e, alpha: e }, bounds); break;
-    case 'flou': drawPrev({ blur: e * 30, alpha: 1 - e }); drawClip(ctx, c, t, W, H, { blur: (1 - e) * 30, alpha: e }, bounds); break;
-    case 'tourbillon': drawPrev({ scale: 1 - e * 0.7, alpha: 1 - e }); drawClip(ctx, c, t, W, H, { scale: 0.3 + 0.7 * e, alpha: e }, bounds); break;
-    case 'balayage':
-      drawPrev();
-      drawClip(ctx, c, t, W, H, { clip: (x) => { x.beginPath(); x.rect(0, 0, W * e, H); x.clip(); } }, bounds);
-      break;
-    case 'cercle':
-      drawPrev();
-      drawClip(ctx, c, t, W, H, { clip: (x) => { x.beginPath(); x.arc(W / 2, H / 2, Math.hypot(W, H) * 0.5 * e, 0, Math.PI * 2); x.clip(); } }, bounds);
-      break;
-    default: drawClip(ctx, c, t, W, H, {}, bounds);
-  }
+  const [A, ax] = layer(0, W, H), [B, bx] = layer(1, W, H);
+  if (prev) drawClip(ax, prev, t, W, H, { local: prev.duration + local });
+  drawClip(bx, c, t, W, H, {}, bounds);
+  applyTransition(ctx, id, A, B, p, W, H);
 }
 
 // ---------------------------------------------------------- effets (calques d'effet : s'appliquent à tout ce qui est en dessous)
-export const EFFECTS = {
-  tremblement: ['Tremblement', '📳'], flash: ['Flash', '⚡'], glitch: ['Glitch', '👾'], vhs: ['VHS', '📼'], grain: ['Grain de film', '🎞️'],
-  vignette: ['Vignette', '⭕'], cinema: ['Bandes ciné', '🎬'], zoompulse: ['Zoom pulsé', '💓'], miroir: ['Miroir', '🪞'],
-  nb: ['Noir & blanc', '⚫'], flou: ['Flou', '🌫️'], arcenciel: ['Arc-en-ciel', '🌈'], pixel: ['Pixelisation', '🟦'],
-  neige: ['Neige', '❄️'], confettis: ['Confettis', '🎉'], coeurs: ['Cœurs', '💖'], etoiles: ['Étoiles', '✨'], bulles: ['Bulles', '🫧'],
-  lumiere: ['Lumière chaude', '🌅'], fondunoir: ['Fondu au noir', '🌑'],
-};
-const tmpCv = makeCanvas(2, 2);
-let noiseCv = null, scanCv = null;
-const hash = (n) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
-
-function copyCanvas(ctx) {
-  const c = ctx.canvas;
-  if (tmpCv.width !== c.width || tmpCv.height !== c.height) { tmpCv.width = c.width; tmpCv.height = c.height; }
-  const t = tmpCv.getContext('2d');
-  t.setTransform(1, 0, 0, 1, 0, 0);
-  t.globalCompositeOperation = 'copy';
-  t.drawImage(c, 0, 0);
-  t.globalCompositeOperation = 'source-over';
-  return tmpCv;
-}
-function redraw(ctx, W, H, fn, filter = 'none') {
-  const src = copyCanvas(ctx);
-  ctx.save();
-  ctx.fillStyle = M.project.background.color;
-  ctx.fillRect(0, 0, W, H);
-  ctx.filter = filter;
-  fn(src);
-  ctx.restore();
-}
-function particles(ctx, W, H, local, k, kind) {
-  const n = Math.round(30 + 170 * k);
-  const glyph = { coeurs: '💖', etoiles: '✨', confettis: null, neige: null, bulles: null }[kind];
-  const colors = ['#ff004d', '#ffec27', '#29adff', '#00e436', '#ff77a8', '#ffa300'];
-  ctx.save();
-  for (let i = 0; i < n; i++) {
-    const r0 = hash(i), r1 = hash(i + 100), r2 = hash(i + 200);
-    const speed = kind === 'bulles' ? -(0.05 + r1 * 0.1) : 0.06 + r1 * 0.16;
-    let y = (r2 + local * speed) % 1.1;
-    if (y < 0) y += 1.1;
-    y = y * H * 1.1 - H * 0.05;
-    const x = (r0 + Math.sin(local * (0.6 + r1) + i) * 0.02) * W;
-    const size = (kind === 'neige' ? 2 + r1 * 6 : 8 + r1 * 18) * (W / 1920) * 2;
-    if (glyph) {
-      ctx.globalAlpha = kind === 'etoiles' ? 0.4 + 0.6 * Math.abs(Math.sin(local * 3 + i)) : 0.9;
-      ctx.font = `${size * 2}px "Segoe UI Emoji", sans-serif`;
-      ctx.fillText(glyph, x, y);
-    } else if (kind === 'confettis') {
-      ctx.fillStyle = colors[i % colors.length];
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(local * (2 + r1 * 4) + i);
-      ctx.fillRect(-size / 2, -size / 4, size, size / 2);
-      ctx.restore();
-    } else if (kind === 'bulles') {
-      ctx.strokeStyle = 'rgba(200,230,255,.8)';
-      ctx.lineWidth = Math.max(1, size / 8);
-      ctx.beginPath();
-      ctx.arc(x, y, size, 0, Math.PI * 2);
-      ctx.stroke();
-    } else {
-      ctx.fillStyle = 'rgba(255,255,255,.9)';
-      ctx.beginPath();
-      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  ctx.restore();
-}
-
+export const EFFECTS = Object.fromEntries(EFFECT_LIST.map((e) => [e.id, [e.label, e.icon]]));
 function applyEffect(ctx, c, local, W, H) {
-  const k = Math.max(0, Math.min(1, c.effect?.intensity ?? 0.6));
-  const type = c.effect?.type;
-  const frame = Math.floor(local * M.project.fps);
-  switch (type) {
-    case 'tremblement': {
-      const a = k * 0.03 * W;
-      redraw(ctx, W, H, (s) => ctx.drawImage(s, (hash(frame) - 0.5) * a, (hash(frame + 9) - 0.5) * a));
-      break;
-    }
-    case 'flash': {
-      const a = k * Math.max(0, 1 - ((local * 2) % 1) * 3);
-      ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.restore();
-      break;
-    }
-    case 'zoompulse': {
-      const s = 1 + 0.08 * k * Math.abs(Math.sin(local * Math.PI * 2));
-      redraw(ctx, W, H, (src) => { ctx.translate(W / 2, H / 2); ctx.scale(s, s); ctx.drawImage(src, -W / 2, -H / 2); });
-      break;
-    }
-    case 'glitch': {
-      const src = copyCanvas(ctx);
-      const slices = 3 + Math.round(k * 8);
-      for (let i = 0; i < slices; i++) {
-        if (hash(frame * 7 + i) > 0.55) continue;
-        const y = hash(frame * 3 + i) * H, h = (0.02 + hash(frame + i * 5) * 0.08) * H, dx = (hash(frame * 11 + i) - 0.5) * k * 0.12 * W;
-        ctx.drawImage(src, 0, y, W, h, dx, y, W, h);
-      }
-      ctx.save();
-      ctx.globalAlpha = 0.35 * k;
-      ctx.globalCompositeOperation = 'screen';
-      ctx.filter = 'hue-rotate(90deg)';
-      ctx.drawImage(src, k * 0.008 * W, 0);
-      ctx.restore();
-      break;
-    }
-    case 'vhs': {
-      const src = copyCanvas(ctx);
-      ctx.save();
-      ctx.globalAlpha = 0.3 * k;
-      ctx.globalCompositeOperation = 'screen';
-      ctx.filter = 'saturate(180%) hue-rotate(-20deg)';
-      ctx.drawImage(src, k * 0.006 * W + Math.sin(local * 40) * 2, 0);
-      ctx.restore();
-      if (!scanCv) {
-        scanCv = makeCanvas(4, 4);
-        const x = scanCv.getContext('2d');
-        x.fillStyle = 'rgba(0,0,0,.55)';
-        x.fillRect(0, 0, 4, 1);
-      }
-      ctx.save();
-      ctx.globalAlpha = 0.5 * k;
-      ctx.fillStyle = ctx.createPattern(scanCv, 'repeat');
-      ctx.fillRect(0, 0, W, H);
-      ctx.restore();
-      break;
-    }
-    case 'grain': {
-      if (!noiseCv) {
-        noiseCv = makeCanvas(256, 256);
-        const x = noiseCv.getContext('2d');
-        const img = x.createImageData(256, 256);
-        for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
-        x.putImageData(img, 0, 0);
-      }
-      ctx.save();
-      ctx.globalAlpha = 0.28 * k;
-      ctx.globalCompositeOperation = 'overlay';
-      const pat = ctx.createPattern(noiseCv, 'repeat');
-      pat.setTransform(new DOMMatrix().translate(hash(frame) * 256, hash(frame + 3) * 256));
-      ctx.fillStyle = pat;
-      ctx.fillRect(0, 0, W, H);
-      ctx.restore();
-      break;
-    }
-    case 'vignette': {
-      const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.hypot(W, H) / 2);
-      g.addColorStop(0, 'rgba(0,0,0,0)');
-      g.addColorStop(1, `rgba(0,0,0,${0.9 * k})`);
-      ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
-      break;
-    }
-    case 'cinema': {
-      const h = H * 0.12 * k * Math.min(1, local / 0.4) * Math.min(1, (c.duration - local) / 0.4);
-      ctx.save(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, h); ctx.fillRect(0, H - h, W, h); ctx.restore();
-      break;
-    }
-    case 'miroir': {
-      const src = copyCanvas(ctx);
-      ctx.save(); ctx.translate(W, 0); ctx.scale(-1, 1); ctx.drawImage(src, 0, 0, W / 2, H, 0, 0, W / 2, H); ctx.restore();
-      break;
-    }
-    case 'nb': redraw(ctx, W, H, (s) => ctx.drawImage(s, 0, 0), `grayscale(${k * 100}%)`); break;
-    case 'flou': redraw(ctx, W, H, (s) => ctx.drawImage(s, 0, 0), `blur(${k * 24 * (W / 1920)}px)`); break;
-    case 'arcenciel': redraw(ctx, W, H, (s) => ctx.drawImage(s, 0, 0), `hue-rotate(${local * 160}deg) saturate(${100 + k * 80}%)`); break;
-    case 'pixel': {
-      const src = copyCanvas(ctx);
-      const b = Math.max(2, Math.round((4 + k * 36) * (W / 1920) * 1.5));
-      const w = Math.max(1, Math.round(W / b)), h = Math.max(1, Math.round(H / b));
-      offCv.width = w; offCv.height = h;
-      offCv.getContext('2d').drawImage(src, 0, 0, w, h);
-      ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(offCv, 0, 0, W, H); ctx.restore();
-      break;
-    }
-    case 'neige': case 'confettis': case 'coeurs': case 'etoiles': case 'bulles':
-      particles(ctx, W, H, local, k, type);
-      break;
-    case 'lumiere': {
-      const x = W * (0.2 + 0.6 * ((Math.sin(local * 0.8) + 1) / 2));
-      const g = ctx.createRadialGradient(x, H * 0.2, 0, x, H * 0.2, Math.hypot(W, H) * 0.6);
-      g.addColorStop(0, `rgba(255,170,80,${0.55 * k})`);
-      g.addColorStop(1, 'rgba(255,80,40,0)');
-      ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
-      break;
-    }
-    case 'fondunoir': {
-      ctx.save(); ctx.globalAlpha = k * Math.min(1, local / Math.max(0.1, c.duration)); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore();
-      break;
-    }
-  }
+  applyFx(ctx, c.effect?.type, c.effect?.intensity ?? 0.6, local, c.duration, W, H, { bg: M.project.background.color, fps: M.project.fps });
 }
 
 // ---------------------------------------------------------- image complète au temps t
