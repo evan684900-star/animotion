@@ -863,7 +863,9 @@ body.resizing.h { cursor: row-resize !important; }
 .mt-ol-form .mt-search { flex: 1; min-width: 0; margin: 0; }
 .mt-ol-form .btn { padding: 6px 12px; }
 .mt-ol-lic { width: 100%; margin: 6px 0 4px; font-size: 12px; }
-.mt-ol-error { margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(255, 77, 109, 0.12); border: 1px solid rgba(255, 77, 109, 0.4); font-size: 12px; }
+.mt-ol-error { margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(255, 77, 109, 0.12); border: 1px solid rgba(255, 77, 109, 0.4); font-size: 12px; user-select: text; }
+.mt-ol-error p { margin: 5px 0 0; line-height: 1.4; color: var(--text); word-break: break-word; }
+.mt-ol-error .btn { margin-top: 8px; }
 .mt-ol-loading { text-align: center; color: var(--muted); padding: 14px; }
 .mt-ol-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
 .mt-ol-item {

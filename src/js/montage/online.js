@@ -25,6 +25,45 @@ let audio = null, playing = null, rerender = () => {};
 export const licenseName = (l, v) => (l === 'cc0' ? 'CC0 (domaine public)' : l === 'pdm' ? 'Domaine public' : `CC ${String(l).toUpperCase()} ${v || ''}`.trim());
 const needsCredit = (c) => !!c && !['cc0', 'pdm'].includes(c.license);
 const fmtDur = (ms) => { const s = Math.round((ms || 0) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+const attente = (s) => (s < 60 ? `${s} s` : s < 3600 ? `${Math.ceil(s / 60)} min` : `${Math.floor(s / 3600)} h ${String(Math.ceil((s % 3600) / 60)).padStart(2, '0')} min`);
+
+// ---------------------------------------------------------- erreurs détaillées
+const HTTP_FR = {
+  400: 'requête refusée', 401: 'accès non autorisé', 403: 'accès interdit', 404: 'introuvable', 408: 'délai dépassé', 410: 'n’existe plus',
+  429: 'trop de demandes', 500: 'erreur interne du serveur', 502: 'le serveur ne répond pas (passerelle)', 503: 'service indisponible ou en maintenance', 504: 'le serveur met trop de temps à répondre',
+};
+export const httpFr = (code) => HTTP_FR[code] || (code >= 500 ? 'erreur du serveur' : 'erreur inattendue');
+/** Message d'erreur d'Openverse, lisible : { detail: "..." } ou { detail: { champ: ["..."] } } */
+function flatten(v) {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v)) return v.map(flatten).join(', ');
+  if (typeof v === 'object') return Object.entries(v).map(([k, x]) => (k === 'detail' || k === 'message' ? flatten(x) : `${k} : ${flatten(x)}`)).join(' ; ');
+  return String(v);
+}
+/** Transforme une réponse d'erreur d'Openverse en { title, lines[] } */
+async function apiError(r) {
+  let detail = '';
+  try {
+    const text = await r.text();
+    try {
+      const j = JSON.parse(text);
+      detail = flatten(j.detail ?? j.error ?? j.message ?? j);
+    } catch {
+      detail = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 240);
+    }
+  } catch {}
+  const code = r.status, lines = [];
+  if (code === 429) {
+    const m = /available in (\d+) second/i.exec(detail), s = m ? +m[1] : null;
+    lines.push(s == null ? 'Openverse limite le nombre de recherches gratuites : réessaie un peu plus tard.'
+      : s > 120 ? `Le quota de recherches gratuites de la journée est épuisé pour ta connexion : nouvel essai possible dans ${attente(s)}.`
+        : `Openverse limite le nombre de recherches par minute : nouvel essai possible dans ${attente(s)}.`);
+  } else if (code >= 500) lines.push('Le problème vient des serveurs d’Openverse, pas de ton PC : réessaie dans quelques minutes.');
+  else if (code === 400) lines.push('Openverse n’accepte pas cette recherche : essaie d’autres mots.');
+  if (detail) lines.push(`Message d’Openverse : « ${detail} »`);
+  return { title: `Erreur ${code} d’Openverse : ${httpFr(code)}`, lines };
+}
 
 // ---------------------------------------------------------- recherche
 async function search(more = false) {
@@ -45,18 +84,22 @@ async function search(more = false) {
     let r;
     try {
       r = await fetch(`${API}${k.path}/?${p}`, { headers: { Accept: 'application/json' } });
-    } catch {
-      throw new Error('Pas de connexion à Internet (ou Openverse est indisponible) 📡');
+    } catch (e) {
+      throw { title: 'Impossible de joindre Openverse 📡', lines: ['Vérifie ta connexion Internet (ou un pare-feu qui bloquerait api.openverse.org).', `Erreur technique : « ${e.message || e} »`] };
     }
-    if (r.status === 429) throw new Error('Openverse limite le nombre de recherches : réessaie dans une minute ⏳');
-    if (!r.ok) throw new Error(`Openverse a répondu ${r.status}, réessaie un peu plus tard`);
-    const d = await r.json();
+    if (!r.ok) throw await apiError(r);
+    let d;
+    try {
+      d = await r.json();
+    } catch (e) {
+      throw { title: 'Réponse illisible d’Openverse', lines: [`Erreur technique : « ${e.message || e} »`] };
+    }
     S.total = d.result_count || 0;
     S.pages = d.page_count || 0;
     const seen = new Set(S.results.map((x) => x.id));
     S.results.push(...(d.results || []).filter((x) => x.url && !seen.has(x.id)));
   } catch (e) {
-    S.error = e.message;
+    S.error = e?.title ? e : { title: 'Erreur pendant la recherche', lines: [String(e?.message || e)] };
     if (more) S.page--;
   }
   S.loading = false;
@@ -65,14 +108,23 @@ async function search(more = false) {
 
 // ---------------------------------------------------------- téléchargement et ajout au montage
 async function download(url) {
-  if (isTauri) return new Uint8Array(await window.__TAURI__.core.invoke('download_url', { url }));
+  const host = (() => { try { return new URL(url).host; } catch { return 'le site'; } })();
+  if (isTauri) {
+    try {
+      return new Uint8Array(await window.__TAURI__.core.invoke('download_url', { url }));
+    } catch (e) {
+      // ex. « erreur 403 (Forbidden) de live.staticflickr.com » : on ajoute l'explication en français
+      const msg = String(e?.message || e), m = /erreur (\d{3})/.exec(msg);
+      throw new Error(m ? `${msg} : ${httpFr(+m[1])}` : msg);
+    }
+  }
   let r;
   try {
     r = await fetch(url);
-  } catch {
-    throw new Error('le site refuse le téléchargement');
+  } catch (e) {
+    throw new Error(`${host} refuse le téléchargement depuis une page web (${e.message || e})`);
   }
-  if (!r.ok) throw new Error(`le serveur a répondu ${r.status}`);
+  if (!r.ok) throw new Error(`erreur ${r.status}${r.statusText ? ` (${r.statusText})` : ''} de ${host} : ${httpFr(r.status)}`);
   return new Uint8Array(await r.arrayBuffer());
 }
 /** Reconnaît le format d'après les premiers octets (les adresses n'ont pas toujours d'extension) */
@@ -217,7 +269,13 @@ export function renderOnline(body, again) {
     for (const w of k.ideas) { const c = el('button', 'chip', escapeHtml(w)); c.onclick = () => { S.q = w; search(); }; ideas.appendChild(c); }
     body.appendChild(ideas);
   }
-  if (S.error) body.appendChild(el('div', 'mt-ol-error', escapeHtml(S.error)));
+  if (S.error) {
+    const box = el('div', 'mt-ol-error', `<b>⚠️ ${escapeHtml(S.error.title)}</b>${S.error.lines.map((l) => `<p>${escapeHtml(l)}</p>`).join('')}`);
+    const again = el('button', 'btn small', 'Réessayer');
+    again.onclick = () => search(S.page > 1);
+    box.appendChild(again);
+    body.appendChild(box);
+  }
   if (S.searched && !S.loading && !S.error && !S.results.length) body.appendChild(el('div', 'mt-empty', 'Aucun résultat 🤷 essaie un autre mot (en anglais ?)'));
   if (S.results.length) {
     body.appendChild(el('p', 'mt-tip', `${S.total >= 240 ? 'Plus de 240' : S.total} résultat${S.total > 1 ? 's' : ''} · clique pour ajouter à la tête de lecture`));

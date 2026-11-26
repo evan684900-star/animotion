@@ -131,9 +131,10 @@ async fn download_url(url: String) -> Result<Response, String> {
             .redirects(8)
             .user_agent("Animotion")
             .build();
+        let host = url.split('/').nth(2).unwrap_or("le site").to_string();
         let resp = agent.get(&url).call().map_err(|e| match e {
-            ureq::Error::Status(code, _) => format!("le serveur a répondu {code}"),
-            other => format!("connexion impossible ({other})"),
+            ureq::Error::Status(code, r) => format!("erreur {code} ({}) de {host}", r.status_text()),
+            ureq::Error::Transport(t) => format!("impossible de joindre {host} ({t})"),
         })?;
         let mut bytes = Vec::new();
         resp.into_reader()
