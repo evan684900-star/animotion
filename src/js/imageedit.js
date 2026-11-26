@@ -9,6 +9,10 @@ import { getImage } from './render.js';
 const DEFAULTS = { brightness: 100, contrast: 100, saturate: 100, hue: 0, blur: 0, grayscale: false, sepia: false, invert: false, palette: false, flipH: false, flipV: false };
 
 /** Applique les réglages à une image source et renvoie un nouveau canvas */
+export function renderAdjust(src, o, w, h) {
+  return render(src, { brightness: 100, contrast: 100, saturate: 100, hue: 0, blur: 0, ...o }, w ?? src.width, h ?? src.height);
+}
+
 function render(src, o, w = src.width, h = src.height) {
   const c = makeCanvas(w, h);
   const x = ctx2d(c);

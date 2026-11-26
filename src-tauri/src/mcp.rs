@@ -18,7 +18,9 @@ const TOOLS: &str = include_str!("mcp_tools.json");
 const IDENTIFIER: &str = "com.animotion.app";
 const INSTRUCTIONS: &str = "Animotion est un logiciel d'animation image par image (pixel art ou dessin vectoriel). \
 Appelle get_state d'abord. Les frames et calques sont numérotés à partir de 0 (calque 0 = tout en bas). \
-Pour créer une animation entière, open_animo est le plus rapide ; pour retoucher, utilise draw_pixels / draw_shapes / read_frame. \
+Pour créer une animation entière, open_animo est le plus rapide ; pour dessiner pas à pas, utilise draw_pixels, draw_shapes, draw_line, draw_rect, draw_ellipse, fill, erase_area. \
+Pour animer : add_frames (duplicate: true) puis move_content / transform / retouches, copy_cel pour réutiliser un dessin, et tween (mode dessin) pour générer les frames intermédiaires entre deux poses. \
+L'utilisateur voit tes actions en direct (souris fantôme) : travaille par étapes lisibles. \
 Vérifie ton travail avec get_frame_image. Ne jette jamais le travail non enregistré de l'utilisateur sans son accord (discard_changes). \
 Tout ce que tu fais est annulable par l'utilisateur avec Ctrl+Z.";
 

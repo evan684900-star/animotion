@@ -565,3 +565,17 @@ body.resizing.h { cursor: row-resize !important; }
 .ie-controls .xp-row input[type='range'] { flex: 1; }
 .ie-controls .val { min-width: 52px; text-align: right; color: var(--muted); font-size: 12px; }
 .ie-checks { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 6px; }
+
+/* ------------------------------------------------ Souris fantôme de Claude */
+.ghost-cursor {
+  position: fixed; left: 0; top: 0; z-index: 300; pointer-events: none; display: flex; align-items: flex-start; gap: 2px;
+  opacity: 0; transition: opacity 0.25s; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.55)); margin: -3px 0 0 -5px;
+}
+.ghost-cursor.show { opacity: 1; }
+.ghost-cursor svg { transition: transform 0.1s; transform-origin: 5px 3px; }
+.ghost-cursor.press svg { transform: scale(0.82); }
+.ghost-cursor span {
+  margin-top: 18px; font-size: 11px; font-weight: 700; color: #fff; background: var(--accent);
+  padding: 1px 7px; border-radius: 8px; white-space: nowrap;
+}
+.ghost-press { box-shadow: 0 0 0 2px var(--accent), 0 0 14px rgba(var(--accent-rgb), 0.7) !important; background: var(--accent-soft) !important; transition: none; }

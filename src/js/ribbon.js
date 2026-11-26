@@ -27,6 +27,7 @@ import { checkForUpdate } from './update.js';
 import { importSpriteScript } from './sprites.js';
 import { discordSettings, setDiscord, discordAvailable } from './discord.js';
 import { showMcpSetup } from './mcp.js';
+import { ghostSettings, setGhost } from './ghost.js';
 import { showExportDialog } from './exportdialog.js';
 import { showImageAdjust } from './imageedit.js';
 import { layout, toggleLayout, setUiScale, resetLayout } from './layout.js';
@@ -362,6 +363,10 @@ function groups(tab) {
         { title: 'Claude', items: [
           B('wand', 'Demander à Claude', showClaudeHelp, { tip: 'Faire créer une animation par Claude et la coller ici' }),
           B('plug', 'Connecter Claude Desktop', showMcpSetup, { tip: 'Laisser Claude Desktop piloter Animotion' }),
+          B('pointer', ghostSettings.enabled ? 'Actions visibles' : 'Actions cachées', () => { setGhost('enabled', !ghostSettings.enabled); refreshUI(); }, {
+            active: ghostSettings.enabled, tip: 'Montrer la souris de Claude quand il agit (sinon tout apparaît d’un coup)',
+          }),
+          N(() => stack(field('Vitesse', select([['rapide', 'Rapide'], ['normale', 'Normale'], ['lente', 'Lente']], ghostSettings.speed, (v) => setGhost('speed', v))))),
         ] },
         { title: 'Aide', items: [B('keyboard', 'Raccourcis', showShortcuts, { tip: 'F1' }), B('book', 'Tutoriel', showTutorial), B('info', 'À propos', showAbout), B('import', 'Mises à jour', () => checkForUpdate(false))] },
         { title: 'Discord', items: [

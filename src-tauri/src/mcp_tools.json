@@ -2,7 +2,10 @@
   {
     "name": "get_state",
     "description": "Décrit le projet ouvert dans Animotion : mode (pixel ou vector), taille, fps, calques (index 0 = calque du bas), frames (index à partir de 0), calque et frame sélectionnés, couleurs, état d'enregistrement. À appeler en premier.",
-    "inputSchema": { "type": "object", "properties": {} }
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    }
   },
   {
     "name": "new_project",
@@ -10,13 +13,37 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "mode": { "type": "string", "enum": ["pixel", "vector"] },
-        "width": { "type": "integer", "minimum": 1, "maximum": 4096 },
-        "height": { "type": "integer", "minimum": 1, "maximum": 4096 },
-        "fps": { "type": "integer", "minimum": 1, "maximum": 60 },
-        "discard_changes": { "type": "boolean" }
+        "mode": {
+          "type": "string",
+          "enum": [
+            "pixel",
+            "vector"
+          ]
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        },
+        "discard_changes": {
+          "type": "boolean"
+        }
       },
-      "required": ["mode", "width", "height"]
+      "required": [
+        "mode",
+        "width",
+        "height"
+      ]
     }
   },
   {
@@ -25,11 +52,21 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "animo": { "type": "object", "description": "Le projet .animo (objet JSON)" },
-        "name": { "type": "string", "description": "Nom du projet" },
-        "discard_changes": { "type": "boolean" }
+        "animo": {
+          "type": "object",
+          "description": "Le projet .animo (objet JSON)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nom du projet"
+        },
+        "discard_changes": {
+          "type": "boolean"
+        }
       },
-      "required": ["animo"]
+      "required": [
+        "animo"
+      ]
     }
   },
   {
@@ -38,15 +75,39 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "rows": { "type": "array", "items": { "type": "string" } },
-        "palette": { "type": "object", "additionalProperties": { "type": "string" } },
-        "x": { "type": "integer" },
-        "y": { "type": "integer" },
-        "frame": { "type": "integer", "description": "Index de frame (défaut : frame sélectionnée)" },
-        "layer": { "description": "Index (0 = bas), nom ou id du calque (défaut : calque sélectionné)" },
-        "clear": { "type": "boolean" }
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "palette": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        },
+        "frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "layer": {
+          "description": "Index (0 = bas), nom ou id du calque (défaut : calque sélectionné)"
+        },
+        "clear": {
+          "type": "boolean"
+        }
       },
-      "required": ["rows", "palette"]
+      "required": [
+        "rows",
+        "palette"
+      ]
     }
   },
   {
@@ -55,12 +116,25 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "shapes": { "type": "array", "items": { "type": "object" } },
-        "frame": { "type": "integer" },
-        "layer": { "description": "Index (0 = bas), nom ou id du calque" },
-        "clear": { "type": "boolean" }
+        "shapes": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "frame": {
+          "type": "integer"
+        },
+        "layer": {
+          "description": "Index (0 = bas), nom ou id du calque"
+        },
+        "clear": {
+          "type": "boolean"
+        }
       },
-      "required": ["shapes"]
+      "required": [
+        "shapes"
+      ]
     }
   },
   {
@@ -69,10 +143,24 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "frame": { "type": "integer" },
-        "layer": { "description": "Index, nom ou id du calque" },
-        "x": { "type": "integer" }, "y": { "type": "integer" },
-        "w": { "type": "integer" }, "h": { "type": "integer" }
+        "frame": {
+          "type": "integer"
+        },
+        "layer": {
+          "description": "Index, nom ou id du calque"
+        },
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        },
+        "w": {
+          "type": "integer"
+        },
+        "h": {
+          "type": "integer"
+        }
       }
     }
   },
@@ -81,7 +169,14 @@
     "description": "Renvoie une image PNG de la frame (tous les calques visibles), agrandie pour être bien visible. Sert à vérifier visuellement le résultat.",
     "inputSchema": {
       "type": "object",
-      "properties": { "frame": { "type": "integer" }, "scale": { "type": "number" } }
+      "properties": {
+        "frame": {
+          "type": "integer"
+        },
+        "scale": {
+          "type": "number"
+        }
+      }
     }
   },
   {
@@ -90,55 +185,138 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "count": { "type": "integer", "minimum": 1, "maximum": 200 },
-        "after": { "type": "integer" },
-        "duplicate": { "type": "boolean" },
-        "duration": { "type": "integer" }
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "after": {
+          "type": "integer"
+        },
+        "duplicate": {
+          "type": "boolean"
+        },
+        "duration": {
+          "type": "integer"
+        }
       }
     }
   },
   {
     "name": "delete_frame",
     "description": "Supprime une frame (index). Il reste toujours au moins une frame.",
-    "inputSchema": { "type": "object", "properties": { "frame": { "type": "integer" } }, "required": ["frame"] }
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "frame"
+      ]
+    }
   },
   {
     "name": "add_layer",
     "description": "Ajoute un calque au-dessus du calque sélectionné (ou tout en haut avec on_top: true). Renvoie son index et son id.",
-    "inputSchema": { "type": "object", "properties": { "name": { "type": "string" }, "on_top": { "type": "boolean" } } }
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "on_top": {
+          "type": "boolean"
+        }
+      }
+    }
   },
   {
     "name": "clear_cel",
     "description": "Vide une cel (frame + calque).",
-    "inputSchema": { "type": "object", "properties": { "frame": { "type": "integer" }, "layer": {} } }
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "integer"
+        },
+        "layer": {}
+      }
+    }
   },
   {
     "name": "select",
     "description": "Sélectionne la frame et/ou le calque affichés dans l'appli.",
-    "inputSchema": { "type": "object", "properties": { "frame": { "type": "integer" }, "layer": {} } }
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "integer"
+        },
+        "layer": {}
+      }
+    }
   },
   {
     "name": "set_timing",
     "description": "Change les images par seconde (fps) et/ou la durée d'une frame précise (frame + duration en ms ; duration 0 = automatique).",
     "inputSchema": {
       "type": "object",
-      "properties": { "fps": { "type": "integer" }, "frame": { "type": "integer" }, "duration": { "type": "integer" } }
+      "properties": {
+        "fps": {
+          "type": "integer"
+        },
+        "frame": {
+          "type": "integer"
+        },
+        "duration": {
+          "type": "integer"
+        }
+      }
     }
   },
   {
     "name": "play",
     "description": "Lance (playing: true) ou arrête (false) la lecture de l'animation dans l'appli.",
-    "inputSchema": { "type": "object", "properties": { "playing": { "type": "boolean" } }, "required": ["playing"] }
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "playing": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "playing"
+      ]
+    }
   },
   {
     "name": "undo",
     "description": "Annule les dernières actions (steps, défaut 1).",
-    "inputSchema": { "type": "object", "properties": { "steps": { "type": "integer" } } }
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "integer"
+        }
+      }
+    }
   },
   {
     "name": "save_project",
     "description": "Enregistre le projet en .animo. Sans path : là où il était déjà enregistré, sinon dans Documents\\Animotion. Renvoie le chemin.",
-    "inputSchema": { "type": "object", "properties": { "path": { "type": "string" }, "name": { "type": "string" } } }
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    }
   },
   {
     "name": "export",
@@ -146,11 +324,602 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "format": { "type": "string", "enum": ["gif", "png", "sequence", "spritesheet", "webm", "mp4"] },
-        "path": { "type": "string" },
-        "scale": { "type": "number" }
+        "format": {
+          "type": "string",
+          "enum": [
+            "gif",
+            "png",
+            "sequence",
+            "spritesheet",
+            "webm",
+            "mp4"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "scale": {
+          "type": "number"
+        }
       },
-      "required": ["format"]
+      "required": [
+        "format"
+      ]
+    }
+  },
+  {
+    "name": "draw_line",
+    "description": "Trace une ligne (pixel : pixels nets d'épaisseur size ; dessin : trait vectoriel d'épaisseur size).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "x1": {
+          "type": "number"
+        },
+        "y1": {
+          "type": "number"
+        },
+        "x2": {
+          "type": "number"
+        },
+        "y2": {
+          "type": "number"
+        },
+        "color": {
+          "type": "string",
+          "description": "Couleur CSS (ex. '#ff004d'), ou 'transparent' pour effacer"
+        },
+        "size": {
+          "type": "number",
+          "description": "Épaisseur (défaut 1)"
+        },
+        "frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        }
+      },
+      "required": [
+        "x1",
+        "y1",
+        "x2",
+        "y2"
+      ]
+    }
+  },
+  {
+    "name": "draw_rect",
+    "description": "Dessine un rectangle (x, y = coin haut-gauche). color = contour, fill = remplissage (facultatif), size = épaisseur du contour.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "color": {
+          "type": "string",
+          "description": "Couleur CSS (ex. '#ff004d'), ou 'transparent' pour effacer"
+        },
+        "fill": {
+          "type": "string",
+          "description": "Couleur CSS (ex. '#ff004d'), ou 'transparent' pour effacer"
+        },
+        "size": {
+          "type": "number"
+        },
+        "frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ]
+    }
+  },
+  {
+    "name": "draw_ellipse",
+    "description": "Dessine une ellipse ou un cercle inscrit dans le rectangle x, y, w, h. color = contour, fill = remplissage.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "color": {
+          "type": "string",
+          "description": "Couleur CSS (ex. '#ff004d'), ou 'transparent' pour effacer"
+        },
+        "fill": {
+          "type": "string",
+          "description": "Couleur CSS (ex. '#ff004d'), ou 'transparent' pour effacer"
+        },
+        "size": {
+          "type": "number"
+        },
+        "frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ]
+    }
+  },
+  {
+    "name": "fill",
+    "description": "Pot de peinture. Pixel : remplit la zone de même couleur autour du point (x, y). Dessin : colorie la forme sous le point.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "color": {
+          "type": "string",
+          "description": "Couleur CSS (ex. '#ff004d'), ou 'transparent' pour effacer"
+        },
+        "frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "color"
+      ]
+    }
+  },
+  {
+    "name": "erase_area",
+    "description": "Efface une zone rectangulaire (pixel) ou les formes qui la touchent (dessin). Sans w/h : toute la cel.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number"
+        },
+        "h": {
+          "type": "number"
+        },
+        "frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        }
+      }
+    }
+  },
+  {
+    "name": "move_content",
+    "description": "Décale tout le dessin d'une cel de dx, dy (all_frames: true = sur toutes les frames du calque). Pratique pour animer un déplacement.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dx": {
+          "type": "number"
+        },
+        "dy": {
+          "type": "number"
+        },
+        "frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        },
+        "all_frames": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  {
+    "name": "transform",
+    "description": "Retourne ou fait pivoter le dessin d'une cel : flipH (miroir horizontal), flipV, rotCW (90° horaire), rotCCW.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "flipH",
+            "flipV",
+            "rotCW",
+            "rotCCW"
+          ]
+        },
+        "frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        }
+      },
+      "required": [
+        "action"
+      ]
+    }
+  },
+  {
+    "name": "copy_cel",
+    "description": "Copie le contenu d'une cel vers une autre (remplace la destination). to_layer par défaut = from_layer.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "from_frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "to_frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "from_layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        },
+        "to_layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        }
+      },
+      "required": [
+        "from_frame",
+        "to_frame"
+      ]
+    }
+  },
+  {
+    "name": "move_frame",
+    "description": "Déplace une frame à une autre position dans la timeline.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "to": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "frame",
+        "to"
+      ]
+    }
+  },
+  {
+    "name": "set_layer",
+    "description": "Modifie un calque : name, visible, locked, opacity (0 à 1).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        },
+        "name": {
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "locked": {
+          "type": "boolean"
+        },
+        "opacity": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "layer"
+      ]
+    }
+  },
+  {
+    "name": "delete_layer",
+    "description": "Supprime un calque (il en reste toujours au moins un).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        }
+      },
+      "required": [
+        "layer"
+      ]
+    }
+  },
+  {
+    "name": "move_layer",
+    "description": "Change l'ordre d'un calque : to = nouvel index (0 = tout en bas).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        },
+        "to": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "layer",
+        "to"
+      ]
+    }
+  },
+  {
+    "name": "merge_down",
+    "description": "Fusionne un calque avec celui du dessous.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        }
+      },
+      "required": [
+        "layer"
+      ]
+    }
+  },
+  {
+    "name": "set_colors",
+    "description": "Change la couleur principale et/ou secondaire de l'utilisateur.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "description": "Couleur CSS (ex. '#ff004d'), ou 'transparent' pour effacer"
+        },
+        "secondary": {
+          "type": "string",
+          "description": "Couleur CSS (ex. '#ff004d'), ou 'transparent' pour effacer"
+        }
+      }
+    }
+  },
+  {
+    "name": "set_palette",
+    "description": "Remplace la palette : colors = liste de couleurs (#rrggbb), ou preset = nom de palette ('Animotion', 'PICO-8', 'Game Boy', 'Sweetie 16', 'Nuit bleue', 'Niveaux de gris', 'Noir & blanc').",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "colors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "preset": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  {
+    "name": "set_onion",
+    "description": "Pelure d'oignon (affiche en transparence les frames voisines) : enabled, before, after (0 à 5).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "before": {
+          "type": "integer"
+        },
+        "after": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  {
+    "name": "set_grid",
+    "description": "Grille : show, major (pixel : grande grille tous les N px), step (dessin : pas, 0 = auto), style ('lines'|'dots'), snap (magnétisme en mode dessin).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "show": {
+          "type": "boolean"
+        },
+        "major": {
+          "type": "integer"
+        },
+        "step": {
+          "type": "integer"
+        },
+        "style": {
+          "type": "string",
+          "enum": [
+            "lines",
+            "dots"
+          ]
+        },
+        "snap": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  {
+    "name": "resize_canvas",
+    "description": "Change la taille du canevas (anchor : 'center' ou 'topleft').",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "anchor": {
+          "type": "string",
+          "enum": [
+            "center",
+            "topleft"
+          ]
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ]
+    }
+  },
+  {
+    "name": "adjust_image",
+    "description": "Retouche une cel (pixel) ou ses images importées (dessin) : brightness, contrast, saturate (en %, 100 = normal), hue (degrés), blur (px), grayscale, sepia, invert, flipH, flipV, palette (pixel : ramène les couleurs à la palette).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "frame": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        },
+        "brightness": {
+          "type": "number"
+        },
+        "contrast": {
+          "type": "number"
+        },
+        "saturate": {
+          "type": "number"
+        },
+        "hue": {
+          "type": "number"
+        },
+        "blur": {
+          "type": "number"
+        },
+        "grayscale": {
+          "type": "boolean"
+        },
+        "sepia": {
+          "type": "boolean"
+        },
+        "invert": {
+          "type": "boolean"
+        },
+        "flipH": {
+          "type": "boolean"
+        },
+        "flipV": {
+          "type": "boolean"
+        },
+        "palette": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  {
+    "name": "tween",
+    "description": "Mode dessin : crée count frames intermédiaires entre la frame from et la frame to (insérées juste après from). La forme n° k de from glisse vers la forme n° k de to (même nombre de points requis). Idéal pour animer un mouvement fluide à partir de deux poses.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "to": {
+          "type": "integer",
+          "description": "Index de frame (défaut : frame sélectionnée)"
+        },
+        "count": {
+          "type": "integer"
+        },
+        "layer": {
+          "description": "Calque : index (0 = bas), nom ou id (défaut : calque sélectionné)"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ]
+    }
+  },
+  {
+    "name": "redo",
+    "description": "Rétablit les dernières actions annulées (steps, défaut 1).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "steps": {
+          "type": "integer"
+        }
+      }
+    }
+  },
+  {
+    "name": "set_view",
+    "description": "Zoom de la vue : 'fit' pour ajuster à l'écran, ou un facteur (ex. 8).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "zoom": {}
+      }
     }
   }
 ]

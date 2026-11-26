@@ -31,6 +31,8 @@ Avec **Claude Desktop**, Claude peut piloter Animotion en direct : créer un pro
 2. Quitte complètement Claude Desktop, puis relance-le.
 3. Demande par exemple : *« crée un slime de 16×16 qui saute en 6 frames et exporte un GIF »*.
 
+Pendant qu'il travaille, une **souris fantôme « Claude »** clique sur les vrais boutons et dessine sous tes yeux (réglable dans Aide › Claude : actions visibles ou non, vitesse rapide, normale ou lente). Claude dispose de 39 actions : dessin (pixels, formes, lignes, rectangles, ellipses, pot de peinture, gomme), animation (frames, interpolation entre deux poses, déplacement, miroir, rotation, copie de cels), calques, couleurs et palettes, grille, pelure d'oignon, taille du canevas, retouche d'image, export…
+
 Comment ça marche : Claude Desktop lance `Animotion.exe --mcp`, un pont sans fenêtre qui parle le protocole MCP. Ce pont transmet chaque action à la fenêtre Animotion ouverte (et l'ouvre si besoin) par une connexion locale (127.0.0.1) protégée par un jeton secret. Tout ce que fait Claude s'annule avec Ctrl+Z, et il ne peut pas écraser un projet non enregistré sans ton accord. Les exports vont dans `Documents\Animotion`.
 
 Avec Claude Code : `claude mcp add animotion -- "C:\chemin\Animotion.exe" --mcp`.
