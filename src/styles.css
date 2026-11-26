@@ -932,3 +932,10 @@ body.resizing.h { cursor: row-resize !important; }
 }
 .upd-start:hover { background: var(--accent); color: #fff; }
 .upd-dot-inline { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: updPulse 1.6s ease-in-out infinite; }
+.brush-shapes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
+.brush-shape {
+  height: 30px; border-radius: 6px; border: 1px solid var(--border2); background: var(--bg); color: var(--icon);
+  cursor: pointer; font-size: 15px; display: grid; place-items: center; padding: 0;
+}
+.brush-shape:hover { border-color: var(--accent-strong); color: #fff; }
+.brush-shape.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }

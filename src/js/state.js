@@ -8,6 +8,8 @@ export const app = {
   color2: '#000000',
   pixelSize: 1,
   vectorSize: 4,
+  pixelBrush: localStorage.getItem('animotion.pixelBrush') || 'square', // forme du crayon pixel
+  vectorBrush: localStorage.getItem('animotion.vectorBrush') || 'round', // style du pinceau vectoriel
   fillShapes: false,
   smoothing: true,
   layerIndex: 0,

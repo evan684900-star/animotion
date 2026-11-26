@@ -112,12 +112,43 @@ function paintRect(ctx, x, y, w, h, color) {
   }
 }
 
+// ---------------------------------------------------------- formes du crayon (pixel art)
+export const PIXEL_BRUSHES = [
+  ['square', '■', 'Carré'], ['round', '●', 'Rond'], ['diamond', '◆', 'Losange'], ['cross', '✚', 'Croix'],
+  ['slash', '╱', 'Diagonale ╱'], ['backslash', '╲', 'Diagonale ╲'], ['hline', '━', 'Trait horizontal'], ['vline', '┃', 'Trait vertical'],
+  ['dither', '▦', 'Tramé (un pixel sur deux)'], ['spray', '∴', 'Aérographe'],
+];
+/** Le pixel (i, j) de la grille s × s fait-il partie de la forme ? (x, y = position réelle, pour le tramé) */
+export function inBrush(kind, s, i, j, x = 0, y = 0) {
+  if (s <= 1 && kind !== 'spray') return kind !== 'dither' || (x + y) % 2 === 0;
+  const c = (s - 1) / 2, di = i - c, dj = j - c, t = Math.max(0.5, s / 6);
+  switch (kind) {
+    case 'round': return di * di + dj * dj <= (s / 2) * (s / 2) + 0.25;
+    case 'diamond': return Math.abs(di) + Math.abs(dj) <= s / 2;
+    case 'cross': return Math.abs(di) <= t || Math.abs(dj) <= t;
+    case 'slash': return Math.abs(di + dj) <= t;
+    case 'backslash': return Math.abs(di - dj) <= t;
+    case 'hline': return Math.abs(dj) <= Math.max(0, s / 10);
+    case 'vline': return Math.abs(di) <= Math.max(0, s / 10);
+    case 'dither': return di * di + dj * dj <= (s / 2) * (s / 2) + 0.25 && (x + y) % 2 === 0;
+    case 'spray': return di * di + dj * dj <= (s / 2) * (s / 2) + 0.25 && Math.random() < 0.12;
+    default: return true;
+  }
+}
 function stamp(ctx, x, y, erase, color) {
-  const s = app.pixelSize, o = Math.floor((s - 1) / 2);
-  if (erase || color === TRANSPARENT) ctx.clearRect(x - o, y - o, s, s);
-  else {
-    ctx.fillStyle = color;
-    ctx.fillRect(x - o, y - o, s, s);
+  const s = app.pixelSize, o = Math.floor((s - 1) / 2), kind = app.pixelBrush || 'square';
+  const clear = erase || color === TRANSPARENT;
+  if (!clear) ctx.fillStyle = color;
+  if (kind === 'square') {
+    if (clear) ctx.clearRect(x - o, y - o, s, s);
+    else ctx.fillRect(x - o, y - o, s, s);
+    return;
+  }
+  for (let j = 0; j < s; j++) for (let i = 0; i < s; i++) {
+    const px = x - o + i, py = y - o + j;
+    if (!inBrush(kind, s, i, j, px, py)) continue;
+    if (clear) ctx.clearRect(px, py, 1, 1);
+    else ctx.fillRect(px, py, 1, 1);
   }
 }
 
@@ -445,7 +476,7 @@ function vectorDown(p, e) {
   if (color === TRANSPARENT && tool !== 'bucket' && tool !== 'eraser') tool = 'eraser';
 
   if (tool === 'brush') {
-    const s = { id: newId(), pts: [[R2(p.x), R2(p.y)]], smooth: true, closed: false, stroke: color, width: app.vectorSize, fill: null };
+    const s = { id: newId(), pts: [[R2(p.x), R2(p.y)]], smooth: true, closed: false, stroke: color, width: app.vectorSize, fill: null, ...(app.vectorBrush && app.vectorBrush !== 'round' ? { brush: app.vectorBrush } : {}) };
     cel.shapes.push(s);
     const raw = [[p.x, p.y]];
     return {
@@ -501,6 +532,7 @@ function vectorDown(p, e) {
   const s = {
     id: newId(), pts: [], smooth: tool === 'ellipse', closed: tool !== 'line',
     stroke: color, width: app.vectorSize, fill: app.fillShapes && tool !== 'line' && app.color2 !== TRANSPARENT ? app.color2 : null,
+    ...(app.vectorBrush && app.vectorBrush !== 'round' ? { brush: app.vectorBrush } : {}),
   };
   cel.shapes.push(s);
   const upd = (q, ev) => {
@@ -948,6 +980,12 @@ export function drawToolOverlay(ctx, z, ox, oy) {
       const o = Math.floor((s - 1) / 2);
       const hx = Math.floor(app.hover.x) - o, hy = Math.floor(app.hover.y) - o;
       const rx = Math.round(X(hx)) + 0.5, ry = Math.round(Y(hy)) + 0.5, rw = Math.round(s * z) - 1;
+      const kind = app.tool === 'bucket' ? 'square' : app.pixelBrush || 'square';
+      if (kind !== 'square' && s > 1) {
+        // forme du crayon : les pixels qui seront peints
+        ctx.fillStyle = app.tool === 'eraser' || app.color === TRANSPARENT ? 'rgba(255,255,255,.35)' : 'rgba(47,140,255,.35)';
+        for (let j = 0; j < s; j++) for (let i = 0; i < s; i++) if (inBrush(kind === 'spray' ? 'round' : kind, s, i, j, hx + i, hy + j)) ctx.fillRect(X(hx + i), Y(hy + j), z, z);
+      }
       ctx.lineWidth = 1;
       ctx.strokeStyle = 'rgba(0,0,0,.7)';
       ctx.strokeRect(rx - 1, ry - 1, rw + 2, rw + 2);

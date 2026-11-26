@@ -1,8 +1,9 @@
-import { app, on, curLayer, curFrame } from './state.js';
+import { app, on, curLayer, curFrame, refreshUI } from './state.js';
 import { el, escapeHtml, normalizeHex } from './util.js';
 import { icon } from './icons.js';
 import * as A from './actions.js';
-import { TOOL_DEFS, toolsFor, setTool, selectedShapes } from './tools.js';
+import { TOOL_DEFS, toolsFor, setTool, selectedShapes, PIXEL_BRUSHES } from './tools.js';
+import { VECTOR_BRUSHES } from './render.js';
 import { sizeControl, colorPair } from './ribbon.js';
 import { canUndo } from './history.js';
 
@@ -87,6 +88,20 @@ function renderPanel() {
   const toolBox = el('div', 'tool-opts');
   const hasSize = !['picker', 'select', 'pointer', 'hand', 'bucket'].includes(app.tool);
   if (hasSize) toolBox.append(el('span', 'muted', 'Taille'), sizeControl());
+  // forme du pinceau : crayon/gomme/formes en pixel art, pinceau en dessin
+  const pixelShape = app.mode === 'pixel' && ['pencil', 'eraser', 'line', 'rect', 'ellipse'].includes(app.tool);
+  const vecShape = app.mode === 'vector' && ['brush', 'line', 'rect', 'ellipse'].includes(app.tool);
+  if (pixelShape || vecShape) {
+    const list = pixelShape ? PIXEL_BRUSHES : VECTOR_BRUSHES, key = pixelShape ? 'pixelBrush' : 'vectorBrush';
+    const row = el('div', 'brush-shapes');
+    for (const [id, ic, label] of list) {
+      const b = el('button', 'brush-shape' + ((app[key] || list[0][0]) === id ? ' active' : ''), ic);
+      b.title = label;
+      b.onclick = () => { app[key] = id; try { localStorage.setItem('animotion.' + key, id); } catch {} refreshUI(); };
+      row.appendChild(b);
+    }
+    toolBox.append(el('span', 'muted', pixelShape ? 'Forme du crayon' : 'Style du pinceau'), row);
+  }
   if (['rect', 'ellipse'].includes(app.tool)) {
     const c = el('label', 'rcheck');
     c.innerHTML = `<input type="checkbox" ${app.fillShapes ? 'checked' : ''}><span>Remplir avec la couleur 2</span>`;

@@ -71,13 +71,58 @@ export function drawShape(ctx, s) {
     ctx.fillStyle = s.fill;
     ctx.fill(p);
   }
-  if (s.stroke && s.width > 0) {
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = s.width;
-    ctx.strokeStyle = s.stroke;
-    ctx.stroke(p);
+  if (s.stroke && s.width > 0) strokeBrush(ctx, s, p);
+}
+
+// ---------------------------------------------------------- styles du pinceau (mode Dessin)
+export const VECTOR_BRUSHES = [
+  ['round', '●', 'Rond'], ['square', '■', 'Carré'], ['calli', '✒️', 'Calligraphie'], ['dash', '┅', 'Tirets'],
+  ['dots', '⋯', 'Pointillés'], ['marker', '🖍️', 'Feutre (transparent)'], ['neon', '💡', 'Néon'], ['double', '〓', 'Double trait'],
+];
+function strokeBrush(ctx, s, p) {
+  const w = s.width;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = w;
+  ctx.strokeStyle = s.stroke;
+  switch (s.brush) {
+    case 'square': ctx.lineCap = 'square'; ctx.lineJoin = 'miter'; ctx.stroke(p); break;
+    case 'dash': ctx.lineCap = 'butt'; ctx.setLineDash([w * 2.5, w * 1.5]); ctx.stroke(p); break;
+    case 'dots': ctx.setLineDash([0.001, w * 2]); ctx.stroke(p); break;
+    case 'marker': ctx.globalAlpha *= 0.5; ctx.lineCap = 'square'; ctx.stroke(p); break;
+    case 'neon':
+      ctx.shadowColor = s.stroke;
+      ctx.shadowBlur = w * 2.5;
+      ctx.stroke(p);
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = Math.max(0.5, w * 0.35);
+      ctx.strokeStyle = '#ffffff';
+      ctx.globalAlpha *= 0.85;
+      ctx.stroke(p);
+      break;
+    case 'double':
+      ctx.stroke(p);
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.lineWidth = w * 0.45;
+      ctx.stroke(p);
+      break;
+    case 'calli': {
+      // plume biseautée à 45° : on repasse un trait fin décalé le long de la plume
+      const n = Math.min(40, Math.max(3, Math.round(w * 1.5))), a = -Math.PI / 4;
+      ctx.lineWidth = Math.max(0.6, w / n * 1.6);
+      for (let k = 0; k <= n; k++) {
+        const t = (k / n - 0.5) * w;
+        ctx.save();
+        ctx.translate(Math.cos(a) * t, Math.sin(a) * t);
+        ctx.stroke(p);
+        ctx.restore();
+      }
+      break;
+    }
+    default: ctx.stroke(p);
   }
+  ctx.restore();
 }
 
 export function bbox(s) {
