@@ -5,7 +5,8 @@ import { el, escapeHtml } from '../util.js';
 import { icon } from '../icons.js';
 import { EFFECTS } from './engine.js';
 
-const ROW_H = { visual: 58, effect: 34, audio: 46 };
+const ROW_H = { line: 56 };
+const rowH = (tr) => ROW_H[tr.kind] || 56;
 const TYPE_ICON = { video: '🎬', image: '🖼️', gif: '🎞️', anim: '✏️', color: '🎨', shape: '🔷', text: '🔤', effect: '✨', audio: '🎵' };
 let root, heads, scroll, content, ruler, playhead, drag = null;
 
@@ -62,7 +63,7 @@ function posAt(e) {
   const x = e.clientX - r.left, y = e.clientY - r.top - 26;
   let acc = 0, track = null;
   for (const tr of displayTracks()) {
-    const h = ROW_H[tr.kind];
+    const h = rowH(tr);
     if (y >= acc && y < acc + h) { track = tr; break; }
     acc += h;
   }
@@ -82,7 +83,7 @@ export function renderTimeline() {
   content.append(ruler, playhead);
   let y = 26;
   for (const tr of tracks) {
-    const h = ROW_H[tr.kind];
+    const h = rowH(tr);
     // en-tête de piste
     const head = el('div', `mt-head k-${tr.kind}${tr.locked ? ' locked' : ''}`);
     head.style.height = h + 'px';
@@ -105,11 +106,12 @@ export function renderTimeline() {
       x.onclick = (ev) => { ev.stopPropagation(); fn(); commit(); };
       btns.appendChild(x);
     };
-    if (tr.kind !== 'effect') b(tr.muted ? 'speakerOff' : 'speaker', 'Couper le son de la piste', tr.muted, () => (tr.muted = !tr.muted));
-    if (tr.kind !== 'audio') b(tr.hidden ? 'eyeOff' : 'eye', 'Masquer la piste', tr.hidden, () => (tr.hidden = !tr.hidden));
-    b(tr.locked ? 'lock' : 'unlock', 'Verrouiller la piste', tr.locked, () => (tr.locked = !tr.locked));
-    b('trash', 'Supprimer la piste', false, () => import('./edit.js').then(({ removeTrack }) => removeTrack(tr.id)));
-    head.append(el('span', 'mt-head-ic', { visual: '🎬', effect: '✨', audio: '🎵' }[tr.kind]), name, btns);
+    b(tr.muted ? 'speakerOff' : 'speaker', 'Couper le son de la ligne', tr.muted, () => (tr.muted = !tr.muted));
+    b(tr.hidden ? 'eyeOff' : 'eye', 'Masquer la ligne', tr.hidden, () => (tr.hidden = !tr.hidden));
+    b(tr.locked ? 'lock' : 'unlock', 'Verrouiller la ligne', tr.locked, () => (tr.locked = !tr.locked));
+    b('trash', 'Supprimer la ligne', false, () => import('./edit.js').then(({ removeTrack }) => removeTrack(tr.id)));
+    const used = M.project.clips.some((c) => c.track === tr.id);
+    head.append(el('span', 'mt-head-ic' + (used ? '' : ' free'), String(M.project.tracks.indexOf(tr) + 1)), name, btns);
     heads.appendChild(head);
     // ligne de la piste et ses clips
     const row = el('div', `mt-row k-${tr.kind}${tr.locked ? ' locked' : ''}${tr.hidden ? ' hidden-track' : ''}`);
@@ -309,7 +311,7 @@ function onMove(e) {
     // changement de piste (un seul clip)
     if (drag.orig.length === 1) {
       const tr = posAt(e).track;
-      if (tr && tr.kind === kindFor(drag.c.type) && !tr.locked) drag.c.track = tr.id;
+      if (tr && !tr.locked) drag.c.track = tr.id;
     }
   } else if (drag.kind === 'trim-l') {
     const c = drag.c;

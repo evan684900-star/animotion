@@ -918,3 +918,5 @@ body.resizing.h { cursor: row-resize !important; }
 .upd-bubble em { font-style: normal; font-size: 11px; opacity: 0.85; }
 .has-update:hover .upd-bubble { opacity: 1; transform: translate(-50%, 0) scale(1); pointer-events: auto; }
 .upd-bubble:hover { filter: brightness(1.1); }
+.mt-head-ic { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 11px; }
+.mt-head-ic.free { background: transparent; color: var(--dim); border: 1px dashed var(--border2); }

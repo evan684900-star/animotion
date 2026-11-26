@@ -1,7 +1,7 @@
 // Mode Montage : l'espace de travail (aperçu interactif, contrôles de lecture, timeline, bibliothèque, réglages)
 import {
   M, FORMATS, createProject, makeClip, TEXT_DEFAULT, onChange, emitChange, undo, redo, resetHistory, commit,
-  fmtTime, projectDuration, clipById, trackById,
+  fmtTime, projectDuration, clipById, trackById, ensureLines,
 } from './model.js';
 import { renderFrame, hooks as engineHooks, disposeAll, pruneElements } from './engine.js';
 import { player, play, pause, toggle, seek, setPreviewMuted } from './player.js';
@@ -194,9 +194,7 @@ function timelineToolbar() {
   btn('zoomIn', '', 'Zoomer la timeline (+)', () => setZoom(M.zoom * 1.3));
   btn('fit', '', 'Voir tout le montage', fitZoom);
   sep();
-  btn('plus', 'Piste vidéo', 'Ajouter une piste vidéo (superposition)', () => E.addTrack('visual'));
-  btn('plus', 'Piste audio', 'Ajouter une piste audio', () => E.addTrack('audio'));
-  btn('plus', 'Piste effets', 'Ajouter une piste d’effets', () => E.addTrack('effect'));
+  btn('plus', 'Ligne', 'Ajouter une ligne (une ligne vide apparaît aussi toute seule quand toutes sont occupées)', () => { E.addTrack(); commit(); });
   return bar;
 }
 
@@ -589,7 +587,8 @@ function normalize(o) {
   const base = createProject(o.width || 1920, o.height || 1080, o.fps || 30);
   const p = { ...base, ...o, background: { ...base.background, ...(o.background || {}) } };
   p.media = Array.isArray(o.media) ? o.media : [];
-  p.tracks = Array.isArray(o.tracks) && o.tracks.length ? o.tracks : base.tracks;
+  // anciennes pistes spécialisées (vidéo, effets, audio) : devenues des lignes universelles, dans le même ordre
+  p.tracks = (Array.isArray(o.tracks) && o.tracks.length ? o.tracks : base.tracks).map((t) => ({ ...t, kind: 'line' }));
   p.markers = Array.isArray(o.markers) ? o.markers : [];
   p.clips = (o.clips || []).filter((c) => c && c.type && p.tracks.some((t) => t.id === c.track)).map((c) => {
     const d = makeClip(c.type, c.track);
@@ -623,6 +622,7 @@ export async function openMontage(obj = null, meta = {}) {
   M.playing = false;
   M.dirty = false;
   M.zoom = 80;
+  ensureLines();
   resetHistory();
   hideStart();
   root.classList.remove('hidden');
@@ -641,6 +641,9 @@ export async function openMontage(obj = null, meta = {}) {
     layoutStage();
     if (project.clips.length) fitZoom();
     else renderTimeline();
+    // la Ligne 1 est en bas : on la montre
+    const sc = root.querySelector('.mt-tl-scroll');
+    if (sc) sc.scrollTop = sc.scrollHeight;
   });
   updateDiscord();
   return true;

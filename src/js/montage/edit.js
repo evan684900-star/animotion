@@ -7,26 +7,27 @@ import { addMedia } from './media.js';
 import { elementFor } from './engine.js';
 import { newId } from '../doc.js';
 import { canvasToBytes, makeCanvas } from '../util.js';
-import { toast } from '../dialogs.js';
+import { toast, confirmDialog } from '../dialogs.js';
 
-const mainTrack = () => M.project.tracks.find((t) => t.kind === 'visual');
+const VISUAL_MEDIA = ['video', 'image', 'gif', 'anim', 'color'];
+const freeOn = (trackId, start, dur, ignore = null) => !clipsOn(trackId).some((c) => c.id !== ignore && start < clipEnd(c) - 1e-6 && start + dur > c.start + 1e-6);
 
-/** Piste qui accueille un type de clip (celle demandée si compatible, sinon la plus logique, sinon une nouvelle) */
-export function trackFor(type, preferId = null) {
-  const kind = kindFor(type);
+/** Ligne qui accueille un clip : celle demandée si possible, sinon la plus basse libre à cet endroit, sinon une nouvelle */
+export function trackFor(type, preferId = null, start = M.time, dur = 0.5) {
   const pref = preferId && trackById(preferId);
-  if (pref && pref.kind === kind && !pref.locked) return pref;
-  const free = M.project.tracks.filter((t) => t.kind === kind && !t.locked);
-  if (type === 'text' || type === 'shape') return free[free.length - 1] || addTrack(kind);
-  if (type === 'effect') return free[free.length - 1] || addTrack('effect');
-  return free[0] || addTrack(kind);
+  if (pref && !pref.locked) return pref;
+  return M.project.tracks.find((t) => !t.locked && freeOn(t.id, start, dur)) || addTrack();
 }
 
 function place(c, trackId, start) {
-  c.track = trackId;
-  // piste principale : les vidéos s'enchaînent à la suite (comme CapCut) ; ailleurs : au niveau de la tête de lecture
-  if (start === undefined) start = trackId === mainTrack()?.id ? Math.max(0, ...clipsOn(trackId).map(clipEnd)) : M.time;
-  c.start = freeStart(trackId, start, c.duration);
+  // sans position imposée : les vidéos et images s'enchaînent sur la Ligne 1 (comme CapCut), le reste va à la tête de lecture
+  if (start === undefined && !trackId && VISUAL_MEDIA.includes(c.type) && M.project.tracks[0] && !M.project.tracks[0].locked) {
+    trackId = M.project.tracks[0].id;
+    start = Math.max(0, ...clipsOn(trackId).map(clipEnd));
+  }
+  if (start === undefined) start = M.time;
+  c.track = trackFor(c.type, trackId, start, c.duration).id;
+  c.start = freeStart(c.track, start, c.duration);
   M.project.clips.push(c);
   M.sel = new Set([c.id]);
   commit();
@@ -39,7 +40,7 @@ export function addMediaClip(entry, { track, start } = {}) {
   // GIF / animation très courts : on répète la boucle pour qu'elle dure au moins 3 s
   if ((type === 'gif' || type === 'anim') && entry.duration > 0 && dur < 3) dur = Math.max(0.1, entry.duration) * Math.ceil(3 / Math.max(0.1, entry.duration));
   const c = makeClip(type, null, { media: entry.id, name: entry.name, duration: Math.max(0.2, dur), loop: type === 'gif' || type === 'anim' });
-  return place(c, trackFor(type, track).id, start);
+  return place(c, track || null, start);
 }
 
 export const TEXT_PRESETS = {
@@ -60,7 +61,7 @@ export function addText(presetId = 'titre') {
   if (pr.y) c.transform.y = pr.y;
   c.animIn = { type: pr.anim || 'fade', duration: 0.4 };
   c.animOut = { type: 'fade', duration: 0.3 };
-  return place(c, trackFor('text').id, M.time);
+  return place(c, null, M.time);
 }
 export function addSticker(emoji) {
   const c = makeClip('text', null, {
@@ -68,27 +69,27 @@ export function addSticker(emoji) {
     text: { ...TEXT_DEFAULT(), content: emoji, size: 260, outline: false, shadow: false, font: 'Segoe UI Emoji' },
   });
   c.animIn = { type: 'pop', duration: 0.4 };
-  return place(c, trackFor('text').id, M.time);
+  return place(c, null, M.time);
 }
 export function addShape(kind, color = '#2f8cff') {
   const c = makeClip('shape', null, { name: 'Forme', duration: 4, color, shape: { kind, w: kind === 'arrow' ? 500 : 400, h: kind === 'arrow' ? 260 : 400 } });
-  return place(c, trackFor('shape').id, M.time);
+  return place(c, null, M.time);
 }
 export function addColor(color = '#000000') {
   const c = makeClip('color', null, { name: 'Fond de couleur', duration: 5, color });
-  return place(c, trackFor('color', mainTrack()?.id).id, undefined);
+  return place(c, null, undefined);
 }
 export function addEffect(type) {
   const c = makeClip('effect', null, { name: type, duration: 2, effect: { type, intensity: 0.6 } });
-  return place(c, trackFor('effect').id, M.time);
+  return place(c, null, M.time);
 }
 
 /** Clips visuels collés juste après un autre clip de la même piste (là où une transition est possible) */
 export function cuts() {
   const out = [];
   for (const tr of M.project.tracks) {
-    if (tr.kind !== 'visual' || tr.locked) continue;
-    const list = clipsOn(tr.id);
+    if (tr.locked) continue;
+    const list = clipsOn(tr.id).filter((c) => c.type !== 'audio' && c.type !== 'effect');
     for (let i = 1; i < list.length; i++) if (Math.abs(clipEnd(list[i - 1]) - list[i].start) < 0.08) out.push(list[i]);
   }
   return out;
@@ -213,7 +214,7 @@ export function extractAudio() {
   const created = [];
   for (const c of list) {
     if (mediaById(c.media)?.hasAudio === false) { toast(`« ${c.name} » n’a pas de son`); continue; }
-    const tr = trackFor('audio');
+    const tr = trackFor('audio', null, c.start, c.duration);
     const a = makeClip('audio', tr.id, { media: c.media, name: '🎵 ' + c.name, start: c.start, duration: c.duration, in: c.in, speed: c.speed, volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut });
     a.start = freeStart(tr.id, c.start, c.duration);
     M.project.clips.push(a);
@@ -223,7 +224,7 @@ export function extractAudio() {
   if (created.length) {
     M.sel = new Set(created);
     commit();
-    toast('Son extrait sur une piste audio 🎵 (la vidéo est maintenant muette)', 'ok');
+    toast('Son extrait sur une ligne libre 🎵 (la vidéo est maintenant muette)', 'ok');
   }
 }
 
@@ -248,23 +249,17 @@ export async function freezeFrame(seconds = 2) {
 }
 
 // ---------------------------------------------------------- pistes et marqueurs
-export function addTrack(kind) {
-  const names = { visual: 'Vidéo', audio: 'Audio', effect: 'Effets' };
-  const n = M.project.tracks.filter((t) => t.kind === kind).length + 1;
-  const tr = makeTrack(kind, `${names[kind]} ${n}`);
-  if (kind === 'audio') M.project.tracks.push(tr);
-  else {
-    // une nouvelle piste visuelle se place sous les effets (pour qu'ils s'appliquent dessus)
-    const fx = M.project.tracks.findIndex((t) => t.kind === 'effect');
-    M.project.tracks.splice(kind === 'visual' && fx >= 0 ? fx : M.project.tracks.filter((t) => t.kind !== 'audio').length, 0, tr);
-  }
+export function addTrack() {
+  const tr = makeTrack('line', `Ligne ${M.project.tracks.length + 1}`);
+  M.project.tracks.push(tr);
   emitChange('tracks');
   return tr;
 }
-export function removeTrack(id) {
+export async function removeTrack(id) {
   const tr = trackById(id);
   if (!tr) return;
-  if (M.project.tracks.filter((t) => t.kind === tr.kind).length < 2 && tr.kind !== 'effect') return toast('Il faut garder au moins une piste de ce type');
+  if (M.project.tracks.length <= 3) return toast('Il faut garder au moins 3 lignes');
+  if (M.project.clips.some((c) => c.track === id) && !(await confirmDialog('Supprimer la ligne ?', `« ${tr.name} » et tout ce qu’elle contient seront supprimés.`, 'Supprimer', true))) return;
   M.project.clips = M.project.clips.filter((c) => c.track !== id);
   M.project.tracks = M.project.tracks.filter((t) => t.id !== id);
   commit();

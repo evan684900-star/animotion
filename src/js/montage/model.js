@@ -46,15 +46,9 @@ export function createProject(w = 1920, h = 1080, fps = 30) {
     fps,
     background: { type: 'color', color: '#000000', blur: 30 },
     media: [],
-    // ordre = du bas vers le haut (les pistes du haut recouvrent celles du bas) ; l'audio est affiché à part
-    tracks: [
-      makeTrack('visual', 'Vidéo principale'),
-      makeTrack('visual', 'Superposition'),
-      makeTrack('visual', 'Textes'),
-      makeTrack('effect', 'Effets'),
-      makeTrack('audio', 'Audio 1'),
-      makeTrack('audio', 'Musique'),
-    ],
+    // lignes universelles (vidéo, son, texte, effet… sur n'importe laquelle), de la Ligne 1 (en bas) vers le haut :
+    // les lignes du haut passent devant celles du bas
+    tracks: [makeTrack('line', 'Ligne 1'), makeTrack('line', 'Ligne 2'), makeTrack('line', 'Ligne 3')],
     clips: [],
     markers: [],
   };
@@ -124,11 +118,20 @@ export const clipEnd = (c) => c.start + c.duration;
 export const clipsOn = (trackId) => M.project.clips.filter((c) => c.track === trackId).sort((a, b) => a.start - b.start);
 export const projectDuration = () => Math.max(0, ...M.project.clips.map(clipEnd));
 export const selectedClips = () => M.project.clips.filter((c) => M.sel.has(c.id));
-export const firstTrack = (kind) => M.project.tracks.find((t) => t.kind === kind && !t.locked);
+export const firstTrack = () => M.project.tracks.find((t) => !t.locked);
 /** Pistes dans l'ordre d'affichage : visuelles/effets du haut vers le bas, puis l'audio */
-export const displayTracks = () => [...M.project.tracks.filter((t) => t.kind !== 'audio').reverse(), ...M.project.tracks.filter((t) => t.kind === 'audio')];
+export const displayTracks = () => [...M.project.tracks].reverse();
+/** Toujours au moins 3 lignes, et une ligne vide en plus dès que toutes sont occupées */
+export function ensureLines() {
+  const p = M.project;
+  if (!p) return;
+  while (p.tracks.length < 3) p.tracks.push(makeTrack('line', `Ligne ${p.tracks.length + 1}`));
+  if (p.tracks.every((t) => p.clips.some((c) => c.track === t.id))) p.tracks.push(makeTrack('line', `Ligne ${p.tracks.length + 1}`));
+}
 /** Le type de piste qui accepte un type de clip */
-export const kindFor = (type) => (type === 'audio' ? 'audio' : type === 'effect' ? 'effect' : 'visual');
+export const kindFor = () => 'line'; // toutes les lignes acceptent tout
+/** Clips qui s'affichent (ni son, ni effet) */
+export const isVisual = (c) => c.type !== 'audio' && c.type !== 'effect';
 
 /** Durée exploitable d'un média (Infinity pour une image, un texte…) */
 export function mediaLength(c) {
@@ -159,6 +162,7 @@ export function resetHistory() {
 }
 /** À appeler après chaque modification terminée : l'état précédent part dans l'historique */
 export function commit() {
+  ensureLines();
   const now = JSON.stringify(M.project);
   if (now === M.last) return;
   if (M.last) M.undo.push(M.last);

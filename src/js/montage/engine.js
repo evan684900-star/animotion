@@ -351,7 +351,7 @@ export function drawClip(ctx, c, t, W, H, mod = {}, bounds = null) {
 // ---------------------------------------------------------- transitions (bibliothèque dans fx.js)
 export const TRANSITIONS = { none: 'Aucune', ...Object.fromEntries(TRANSITION_LIST.map((t) => [t.id, t.label])) };
 function previousOf(c) {
-  const list = clipsOn(c.track);
+  const list = clipsOn(c.track).filter((x) => x.type !== 'audio' && x.type !== 'effect');
   const i = list.findIndex((x) => x.id === c.id);
   const prev = list[i - 1];
   return prev && Math.abs(clipEnd(prev) - c.start) < 0.08 ? prev : null;
@@ -389,8 +389,12 @@ export function renderFrame(ctx, t, W, H) {
   ctx.fillRect(0, 0, W, H);
   // fond flou : la vidéo principale agrandie et floutée derrière (pratique en format vertical)
   if (p.background.type === 'blur') {
-    const main = p.tracks.find((tr) => tr.kind === 'visual' && !tr.hidden);
-    const c = main && clipsOn(main.id).find((x) => isActive(x, t) && ['video', 'image', 'gif', 'anim'].includes(x.type));
+    let c = null;
+    for (const tr of p.tracks) {
+      if (tr.hidden) continue;
+      c = clipsOn(tr.id).find((x) => isActive(x, t) && ['video', 'image', 'gif', 'anim'].includes(x.type));
+      if (c) break;
+    }
     if (c) {
       const s = sourceOf(c, t - c.start, W, H);
       if (s) {
@@ -403,13 +407,10 @@ export function renderFrame(ctx, t, W, H) {
     }
   }
   for (const track of p.tracks) {
-    if (track.kind === 'audio' || track.hidden) continue;
-    const active = clipsOn(track.id).filter((c) => isActive(c, t));
-    if (track.kind === 'effect') {
-      for (const c of active) applyEffect(ctx, c, t - c.start, W, H);
-      continue;
-    }
+    if (track.hidden) continue;
+    const active = clipsOn(track.id).filter((c) => isActive(c, t) && c.type !== 'audio');
     for (const c of active) {
+      if (c.type === 'effect') { applyEffect(ctx, c, t - c.start, W, H); continue; }
       if (c.transition?.type && c.transition.type !== 'none' && t - c.start < c.transition.duration) drawTransition(ctx, c, t, W, H, bounds);
       else drawClip(ctx, c, t, W, H, {}, bounds);
     }
@@ -425,7 +426,7 @@ export function mediaTimeAt(c, t) {
 export function playsAt(c, t) {
   if (isActive(c, t)) return true;
   if (c.type !== 'video') return false;
-  const next = clipsOn(c.track).find((x) => Math.abs(x.start - clipEnd(c)) < 0.08 && x.transition?.type !== 'none');
+  const next = clipsOn(c.track).find((x) => x.type !== 'audio' && x.type !== 'effect' && Math.abs(x.start - clipEnd(c)) < 0.08 && x.transition?.type && x.transition.type !== 'none');
   return !!next && t >= next.start && t < next.start + next.transition.duration;
 }
 export { trackById };
