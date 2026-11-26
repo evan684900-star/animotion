@@ -3,6 +3,7 @@ import { M, emitChange, selectedClips, commit, fmtTime, clipEnd } from './model.
 import { addMedia, addAnimation, ALL_EXT, EXT, kindOf, parseAnimo } from './media.js';
 import { addMediaClip, addText, addSticker, addShape, addColor, addEffect, applyToSelection, TEXT_PRESETS, cuts, setTransitions } from './edit.js';
 import { TRANSITION_LIST, EFFECT_LIST, groupsOf, applyFx, applyTransition } from './fx.js';
+import { renderOnline, stopPreview } from './online.js';
 import { EFFECTS, TRANSITIONS, FILTERS } from './engine.js';
 import { openFiles } from '../platform.js';
 import { el, escapeHtml, makeCanvas } from '../util.js';
@@ -11,7 +12,7 @@ import { app } from '../state.js';
 
 const TABS = [
   ['media', '📁', 'Médias'], ['text', '🔤', 'Texte'], ['stickers', '😀', 'Stickers'], ['shapes', '🔷', 'Formes'],
-  ['effects', '✨', 'Effets'], ['transitions', '⇋', 'Transitions'], ['filters', '🎨', 'Filtres'], ['audio', '🎵', 'Audio'],
+  ['effects', '✨', 'Effets'], ['transitions', '⇋', 'Transitions'], ['filters', '🎨', 'Filtres'], ['audio', '🎵', 'Audio'], ['online', '🌐', 'En ligne'],
 ];
 const STICKERS = '😀 😂 🤣 😍 🥰 😎 🤩 🥳 😭 😡 🤯 😱 🤔 🙄 😴 🤡 👻 💀 👽 🤖 👾 🎃 💩 🙈 👍 👎 👏 🙌 💪 🤝 ✌️ 🤞 👀 💯 🔥 ✨ ⭐ 🌟 💥 💫 ⚡ 💧 ❤️ 🧡 💛 💚 💙 💜 🖤 💔 💕 🎉 🎊 🎁 🏆 🥇 🎮 🕹️ 🎬 🎵 🎶 🎤 📸 💡 💰 💎 🚀 🌈 ☀️ 🌙 ⛄ 🍕 🍔 🍩 🍿 🐱 🐶 🦊 🐸 🐉 🦄 🐝 🌸 🌵 🍀 ⚽ 🏀 ❓ ❗ ✅ ❌ ⚠️ ➡️ ⬅️ ⬆️ ⬇️'.split(' ');
 const SHAPES = [['rect', '⬛', 'Rectangle'], ['round', '▢', 'Arrondi'], ['circle', '⚫', 'Cercle'], ['triangle', '🔺', 'Triangle'], ['star', '⭐', 'Étoile'], ['heart', '❤️', 'Cœur'], ['arrow', '➡️', 'Flèche']];
@@ -65,7 +66,12 @@ export function render() {
   }
   const body = el('div', 'mt-lib-body');
   root.append(tabs, body);
-  ({ media, text, stickers, shapes, effects, transitions, filters, audio })[current](body);
+  if (current !== 'online') stopPreview();
+  const scroll = root.__scroll?.[current] || 0;
+  ({ media, text, stickers, shapes, effects, transitions, filters, audio, online: (b) => renderOnline(b, render) })[current](body);
+  // on garde la position de défilement de l'onglet quand il est redessiné
+  body.scrollTop = scroll;
+  body.onscroll = () => ((root.__scroll ||= {})[current] = body.scrollTop);
 }
 
 const heading = (body, t, sub) => {
@@ -83,6 +89,7 @@ const card = (body, html, title, fn, cls = '') => {
 function mediaItem(m) {
   const rt = M.media.get(m.id);
   const it = el('div', 'mt-media' + (rt?.missing ? ' missing' : ''));
+  if (m.credit) it.title = `${m.credit.title}${m.credit.creator ? ' — ' + m.credit.creator : ''} · ${m.credit.licenseName} (trouvé en ligne)`;
   it.draggable = true;
   it.ondragstart = (e) => e.dataTransfer.setData('text/animotion-media', m.id);
   const th = el('div', 'mt-media-th');

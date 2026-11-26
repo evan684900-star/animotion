@@ -112,6 +112,43 @@ async fn install_update(app: tauri::AppHandle, url: String) -> Result<(), String
     }
 }
 
+// ------------------------------------------------------------------ Médias en ligne
+/// Télécharge un média libre de droits (image, GIF, son) trouvé sur Openverse.
+/// Passe par Rust car beaucoup de sites refusent les téléchargements faits depuis une page web (CORS).
+#[tauri::command]
+async fn download_url(url: String) -> Result<Response, String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("adresse invalide".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        use std::io::Read;
+        const MAX: u64 = 300 * 1024 * 1024;
+        let tls = native_tls::TlsConnector::new().map_err(|e| e.to_string())?;
+        let agent = ureq::AgentBuilder::new()
+            .tls_connector(std::sync::Arc::new(tls))
+            .timeout_connect(std::time::Duration::from_secs(15))
+            .timeout_read(std::time::Duration::from_secs(60))
+            .redirects(8)
+            .user_agent("Animotion")
+            .build();
+        let resp = agent.get(&url).call().map_err(|e| match e {
+            ureq::Error::Status(code, _) => format!("le serveur a répondu {code}"),
+            other => format!("connexion impossible ({other})"),
+        })?;
+        let mut bytes = Vec::new();
+        resp.into_reader()
+            .take(MAX + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|e| e.to_string())?;
+        if bytes.len() as u64 > MAX {
+            return Err("fichier trop gros (plus de 300 Mo)".into());
+        }
+        Ok(Response::new(bytes))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 // ------------------------------------------------------------------ Copie de secours
 // Le projet en cours est recopié régulièrement dans le dossier de données de l'appli,
 // pour pouvoir le récupérer après un plantage de l'appli ou du PC.
@@ -265,6 +302,7 @@ fn main() {
             write_file,
             read_file,
             install_update,
+            download_url,
             recovery_write,
             recovery_meta,
             recovery_read,

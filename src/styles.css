@@ -618,7 +618,7 @@ body.resizing.h { cursor: row-resize !important; }
 
 /* bibliothèque */
 .mt-lib { display: flex; flex-direction: column; background: var(--panel); border-right: 1px solid var(--border); overflow: hidden; }
-.mt-lib-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding: 7px; border-bottom: 1px solid var(--border); }
+.mt-lib-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; padding: 7px; border-bottom: 1px solid var(--border); }
 .mt-lib-tab {
   display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border-radius: 8px; border: 1px solid transparent;
   background: none; color: var(--muted); font-size: 10.5px; cursor: pointer; white-space: nowrap; overflow: hidden;
@@ -851,3 +851,49 @@ body.resizing.h { cursor: row-resize !important; }
 .mt-fx canvas { width: 100%; aspect-ratio: 16 / 9; border-radius: 6px; display: block; background: #000; }
 .mt-fx span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.4em; }
 .mt-fx:hover { border-color: var(--accent); background: var(--panel3); }
+/* médias en ligne (Openverse) */
+.mt-ol-kinds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin-bottom: 8px; }
+.mt-ol-kind {
+  padding: 6px 2px; border-radius: 7px; border: 1px solid var(--border2); background: var(--panel2); color: var(--muted);
+  font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mt-ol-kind:hover { color: var(--text); border-color: var(--accent-strong); }
+.mt-ol-kind.active { background: var(--accent-soft); border-color: var(--accent); color: #fff; }
+.mt-ol-form { display: flex; gap: 6px; }
+.mt-ol-form .mt-search { flex: 1; min-width: 0; margin: 0; }
+.mt-ol-form .btn { padding: 6px 12px; }
+.mt-ol-lic { width: 100%; margin: 6px 0 4px; font-size: 12px; }
+.mt-ol-error { margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(255, 77, 109, 0.12); border: 1px solid rgba(255, 77, 109, 0.4); font-size: 12px; }
+.mt-ol-loading { text-align: center; color: var(--muted); padding: 14px; }
+.mt-ol-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.mt-ol-item {
+  position: relative; aspect-ratio: 1; padding: 0; border-radius: 7px; overflow: hidden; cursor: pointer;
+  border: 1px solid var(--border2); background: #000; display: grid; place-items: center;
+}
+.mt-ol-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mt-ol-item:hover { border-color: var(--accent); }
+.mt-ol-item:hover img { transform: scale(1.06); transition: transform 0.2s; }
+.mt-ol-noimg { font-size: 22px; }
+.mt-ol-badge, .mt-ol-gif {
+  position: absolute; bottom: 3px; left: 3px; font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 4px;
+  background: rgba(0, 0, 0, 0.72); color: #fff; pointer-events: none;
+}
+.mt-ol-gif { left: auto; right: 3px; background: var(--accent); }
+.mt-ol-item.busy::after, .mt-ol-item.done::after {
+  content: '⏳'; position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; background: rgba(0, 0, 0, 0.55);
+}
+.mt-ol-item.done::after { content: '✓'; color: var(--ok); font-weight: 700; background: rgba(0, 0, 0, 0.35); }
+.mt-ol-list { display: flex; flex-direction: column; gap: 4px; }
+.mt-ol-row { display: flex; align-items: center; gap: 7px; padding: 5px 6px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--border2); }
+.mt-ol-row.done { border-color: rgba(47, 212, 122, 0.5); }
+.mt-ol-play { width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%; border: none; background: var(--accent); color: #fff; cursor: pointer; font-size: 12px; }
+.mt-ol-info { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 11.5px; }
+.mt-ol-info b, .mt-ol-info span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-ol-info span { color: var(--muted); font-size: 10.5px; }
+.mt-ol-row .mt-media-add { position: static; opacity: 1; flex-shrink: 0; }
+.mt-ol-more { width: 100%; justify-content: center; margin-top: 8px; }
+.mt-ol-foot { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--border); }
+.mx-credits { margin: -4px 0 10px; padding: 7px 10px; border-radius: 8px; background: var(--accent-soft); font-size: 12px; }
+.mx-credits .link-btn { display: inline-flex; padding: 0 4px; }
+.mt-credits p { margin: 0 0 8px; }
+.mt-credits textarea { min-height: 120px; font-size: 12px; }

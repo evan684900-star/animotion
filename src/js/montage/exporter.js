@@ -9,6 +9,7 @@ import { el, escapeHtml, makeCanvas, canvasToBytes, sleep } from '../util.js';
 import { store } from '../state.js';
 import { fixWebmDuration } from './webm.js';
 import { encodeVideo, renderFrames, fastAvailable, Cancelled } from './fastexport.js';
+import { creditsNeeded, showCredits } from './online.js';
 
 const even = (v) => Math.max(2, Math.round(v / 2) * 2);
 const safe = () => (M.name || 'montage').replace(/[\\/:*?"<>|]/g, '_');
@@ -32,6 +33,14 @@ export async function showMontageExport() {
   const opts = el('div', 'mx-opts');
   const info = el('span', 'xp-info');
   box.append(tabs, opts);
+  const nc = creditsNeeded();
+  if (nc) {
+    const warn = el('div', 'mx-credits', `ℹ️ ${nc} média${nc > 1 ? 's' : ''} trouvé${nc > 1 ? 's' : ''} en ligne demande${nc > 1 ? 'nt' : ''} de citer l’auteur. `);
+    const b = el('button', 'link-btn', '📋 Voir les crédits');
+    b.onclick = () => showCredits();
+    warn.appendChild(b);
+    box.appendChild(warn);
+  }
   const row = (label, input, unit) => {
     const r = el('div', 'xp-row');
     r.append(el('label', null, escapeHtml(label)), input);
