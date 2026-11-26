@@ -176,12 +176,18 @@ export function renderShape(c) {
 // ---------------------------------------------------------- source d'un clip
 let colorCv = null;
 /** Ce qu'il faut dessiner pour un clip : { src, w, h, project } (project = tailles exprimées en pixels du projet) */
+/** Pendant l'export rapide : images vidéo décodées à l'avance (clip -> canvas), à la place des éléments <video> */
+export const frameSource = { get: null };
+
 function sourceOf(c, local, W, H) {
   const mt = c.in + local * c.speed;
   const m = c.media && mediaById(c.media);
   const rt = c.media && M.media.get(c.media);
   switch (c.type) {
     case 'video': {
+      const f = frameSource.get?.(c);
+      if (f) return { src: f, w: f.width, h: f.height };
+      if (f === null) return null;
       const el = elementFor(c);
       if (!el || el.readyState < 2 || !el.videoWidth) return null;
       return { src: el, w: el.videoWidth, h: el.videoHeight };

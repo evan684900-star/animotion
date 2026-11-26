@@ -72,7 +72,7 @@ Choisis **Montage** sur l'écran d'accueil (formats 16:9, 9:16 TikTok/Reels, 1:1
 - **Texte** : 10 styles prêts (titre, sous-titre, néon, gaming, BD, machine à écrire…), polices, contour, ombre, lueur, fond, effet machine à écrire · plus de 100 stickers emoji · 7 formes · fonds de couleur
 - **15 filtres** (vif, vintage, noir et blanc, ciné, néon, rêve…) + luminosité, contraste, saturation, teinte, flou, sépia… · **20 effets** (tremblement, flash, glitch, VHS, grain de film, vignette, bandes ciné, zoom pulsé, miroir, pixelisation, neige, confettis, cœurs, étoiles…) · **12 transitions** (fondus, glissements, zoom, balayage, cercle, flou, tourbillon…)
 - **Fond flou** automatique derrière une vidéo (pratique en format vertical)
-- **Export** : vidéo **MP4** ou **WebM avec le son** (résolution, images/s, qualité, passage choisi), **GIF** animé, **image PNG** de l'instant affiché
+- **Export rapide** : vidéo **MP4** (H.264) ou **WebM avec le son**, calculée par la carte graphique bien plus vite que la durée de la vidéo (résolution, images/s, qualité, passage choisi, bouton Annuler), **GIF** animé, **image PNG** de l'instant affiché · le son accéléré ou ralenti garde sa hauteur normale
 - Annuler/rétablir illimité, copie de secours automatique, raccourcis clavier (F1 dans le montage)
 
 ## Fonctionnalités
@@ -89,6 +89,9 @@ Choisis **Montage** sur l'écran d'accueil (formats 16:9, 9:16 TikTok/Reels, 1:1
 | **Aide** | Raccourcis clavier (F1), Tutoriel, À propos |
 
 ## Développement
+
+Bibliothèque incluse : [Mediabunny](https://github.com/Vanilagy/mediabunny) (MPL-2.0) pour décoder et encoder les vidéos du montage, voir `src/js/vendor/`.
+
 
 ```bash
 npm install

@@ -132,10 +132,21 @@ export function toast(msg, kind = 'info', ms = 2600) {
   }, ms);
 }
 
-export function progress(title) {
+export function progress(title, { onCancel } = {}) {
   const ov = el('div', 'modal-overlay');
   const box = el('div', 'modal', `<div class="modal-head"><h2>${escapeHtml(title)}</h2></div>
     <div class="modal-body"><div class="progress"><div class="bar"></div></div><p class="ptext">Préparation…</p></div>`);
+  if (onCancel) {
+    const foot = el('div', 'modal-foot');
+    const b = el('button', 'btn', 'Annuler');
+    b.onclick = () => {
+      b.disabled = true;
+      b.textContent = 'Annulation…';
+      onCancel();
+    };
+    foot.appendChild(b);
+    box.appendChild(foot);
+  }
   ov.appendChild(box);
   document.getElementById('modalRoot').appendChild(ov);
   const bar = box.querySelector('.bar');

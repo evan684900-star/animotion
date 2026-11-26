@@ -8,6 +8,7 @@ import { modal, toast, progress } from '../dialogs.js';
 import { el, escapeHtml, makeCanvas, canvasToBytes, sleep } from '../util.js';
 import { store } from '../state.js';
 import { fixWebmDuration } from './webm.js';
+import { encodeVideo, renderFrames, fastAvailable, Cancelled } from './fastexport.js';
 
 const even = (v) => Math.max(2, Math.round(v / 2) * 2);
 const safe = () => (M.name || 'montage').replace(/[\\/:*?"<>|]/g, '_');
@@ -22,7 +23,8 @@ export async function showMontageExport() {
   if (dur <= 0) return toast('Le montage est vide : ajoute d’abord des médias 🎬');
   const p = M.project;
   const saved = store('montageExport') || {};
-  const o = { tab: 'video', kind: videoMime('mp4') ? 'mp4' : 'webm', scale: 1, fps: p.fps, quality: 'normale', sound: true, gifWidth: 480, gifFps: 15, loop: true, from: 0, to: dur, ...saved };
+  const fast = fastAvailable();
+  const o = { tab: 'video', kind: fast || videoMime('mp4') ? 'mp4' : 'webm', scale: 1, fps: p.fps, quality: 'normale', sound: true, gifWidth: 480, gifFps: 15, loop: true, from: 0, to: dur, ...saved };
   o.from = 0;
   o.to = dur;
   const box = el('div', 'mx');
@@ -58,7 +60,7 @@ export async function showMontageExport() {
     }
     opts.innerHTML = '';
     if (o.tab === 'video') {
-      row('Format', sel([['mp4', 'MP4 (le plus compatible)', !videoMime('mp4')], ['webm', 'WebM', !videoMime('webm')]], o.kind, (v) => (o.kind = v)));
+      row('Format', sel([['mp4', 'MP4 (le plus compatible)', !fast && !videoMime('mp4')], ['webm', 'WebM', !fast && !videoMime('webm')]], o.kind, (v) => (o.kind = v)));
       row('Résolution', sel([1, 0.75, 0.5, 0.25].map((s) => [s, `${even(p.width * s)} × ${even(p.height * s)}${s === 1 ? ' (originale)' : ''}`]), o.scale, (v) => (o.scale = +v)));
       row('Images / s', sel([[24, '24'], [25, '25'], [30, '30'], [50, '50'], [60, '60']], o.fps, (v) => (o.fps = +v)));
       row('Qualité', sel([['basse', 'Basse (fichier léger)'], ['normale', 'Normale'], ['haute', 'Haute'], ['max', 'Maximale (fichier lourd)']], o.quality, (v) => (o.quality = v)));
@@ -86,7 +88,7 @@ export async function showMontageExport() {
   }
   function update() {
     const len = o.to - o.from;
-    info.textContent = o.tab === 'video' ? `${fmtTime(len)} · ~${Math.max(1, Math.round((QUAL[o.quality] * len) / 8e6))} Mo · enregistré en temps réel`
+    info.textContent = o.tab === 'video' ? `${fmtTime(len)} · ~${Math.max(1, Math.round((QUAL[o.quality] * len) / 8e6))} Mo · ${fast ? '⚡ export rapide (carte graphique)' : 'enregistré en temps réel'}`
       : o.tab === 'gif' ? `${Math.round(len * o.gifFps)} images · ${o.gifWidth} px de large` : 'Image PNG';
   }
   build();
@@ -109,13 +111,43 @@ export async function showMontageExport() {
   }
 }
 
-async function save(bytes, name, label, ext) {
+async function save(bytes, name, label, ext, extra = '') {
   const path = await saveFile(bytes, name, [{ name: label, extensions: [ext] }]);
-  if (path) toast(`Exporté : ${name} ✔`, 'ok');
+  if (path) toast(`Exporté : ${name} ✔${extra}`, 'ok', extra ? 6000 : 2600);
   return path;
 }
 
+// textes de progression
+const dureeTxt = (s) => (s < 60 ? `${Math.max(1, Math.round(s))} s` : `${Math.floor(s / 60)} min ${String(Math.round(s % 60)).padStart(2, '0')} s`);
+const vitesseTxt = (v) => (v >= 1.05 ? `${v >= 10 ? Math.round(v) : v.toFixed(1).replace('.', ',')}× plus vite que la lecture` : 'à peu près en temps réel');
+const etape = (s) => (typeof s === 'string' ? s : s ? `Image ${s.k} / ${s.n} · ${vitesseTxt(s.speed)} · reste ~${dureeTxt(s.left)}` : undefined);
+
+/** Export vidéo : rapide (décodage + encodage par la carte graphique), sinon enregistrement en temps réel */
 export async function exportVideo(o) {
+  const p = M.project;
+  const W = even(p.width * o.scale), H = even(p.height * o.scale);
+  let cancelled = false;
+  const pr = progress('Export vidéo', { onCancel: () => (cancelled = true) });
+  pr.set(0, 'Préparation de l’export rapide…');
+  const t0 = performance.now();
+  let res;
+  try {
+    res = await encodeVideo({ ...o, W, H }, { isCancelled: () => cancelled, onProgress: (q, s) => pr.set(q, etape(s)) });
+  } catch (e) {
+    pr.close();
+    if (e instanceof Cancelled) return toast('Export annulé');
+    console.error(e);
+    toast(`Export rapide impossible (${e.message || e}) : export en temps réel à la place ⏱️`, 'error', 6000);
+    return exportVideoRealtime(o);
+  }
+  pr.close();
+  if (!res) return exportVideoRealtime(o);
+  const took = (performance.now() - t0) / 1000;
+  return save(res.bytes, `${safe()}.${o.kind}`, `Vidéo ${o.kind.toUpperCase()}`, o.kind, ` en ${dureeTxt(took)} (${vitesseTxt((o.to - o.from) / took)})`);
+}
+
+/** Ancien export : on lit le montage et on l'enregistre pendant la lecture (aussi long que la vidéo) */
+export async function exportVideoRealtime(o) {
   const mime = videoMime(o.kind);
   if (!mime) throw new Error(`${o.kind.toUpperCase()} non supporté sur ce PC`);
   const p = M.project;
@@ -135,7 +167,8 @@ export async function exportVideo(o) {
   const chunks = [];
   rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   const stopped = new Promise((r) => (rec.onstop = r));
-  const pr = progress('Export vidéo');
+  let cancelled = false;
+  const pr = progress('Export vidéo (temps réel)', { onCancel: () => (cancelled = true) });
   pr.set(0, 'Préparation…');
   await settle(o.from);
   renderFrame(ctx, o.from, W, H);
@@ -146,7 +179,7 @@ export async function exportVideo(o) {
   await new Promise((resolve) => {
     const tick = () => {
       const t = o.from + (performance.now() - t0) / 1000;
-      if (t >= o.to) return resolve();
+      if (t >= o.to || cancelled) return resolve();
       M.time = t;
       syncMedia(t, true);
       renderFrame(ctx, t, W, H);
@@ -162,6 +195,10 @@ export async function exportVideo(o) {
   rec.stop();
   await stopped;
   if (dest) master.disconnect(dest);
+  if (cancelled) {
+    pr.close();
+    return toast('Export annulé');
+  }
   pr.set(1, 'Enregistrement du fichier…');
   const blob = new Blob(chunks, { type: mime });
   let bytes = new Uint8Array(await blob.arrayBuffer());
@@ -173,17 +210,19 @@ export async function exportVideo(o) {
 export async function exportGif(o) {
   const p = M.project;
   const W = even(o.gifWidth), H = even((o.gifWidth * p.height) / p.width);
-  const cv = makeCanvas(W, H);
-  const ctx = cv.getContext('2d', { willReadFrequently: true });
-  const n = Math.max(1, Math.round((o.to - o.from) * o.gifFps));
   const frames = [];
-  const pr = progress('Export GIF');
-  for (let k = 0; k < n; k++) {
-    const t = o.from + k / o.gifFps;
-    await settle(t);
-    renderFrame(ctx, t, W, H);
-    frames.push({ data: ctx.getImageData(0, 0, W, H).data, delay: 1000 / o.gifFps });
-    pr.set((k / n) * 0.5, `Images… ${k + 1}/${n}`);
+  let cancelled = false;
+  const pr = progress('Export GIF', { onCancel: () => (cancelled = true) });
+  try {
+    await renderFrames({
+      from: o.from, to: o.to, fps: o.gifFps, W, H, willRead: true, isCancelled: () => cancelled,
+      onFrame: (cv) => { frames.push({ data: cv.getContext('2d').getImageData(0, 0, W, H).data, delay: 1000 / o.gifFps }); },
+      onProgress: (q, s) => pr.set(q * 0.5, `Images… ${s.k}/${s.n}`),
+    });
+  } catch (e) {
+    pr.close();
+    if (e instanceof Cancelled) return toast('Export annulé');
+    throw e;
   }
   const bytes = await encodeGIF(frames, W, H, { loop: o.loop, onProgress: (q) => pr.set(0.5 + q * 0.5, `Encodage du GIF… ${Math.round(q * 100)} %`) });
   pr.close();
