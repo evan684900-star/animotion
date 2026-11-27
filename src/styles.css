@@ -939,3 +939,4 @@ body.resizing.h { cursor: row-resize !important; }
 }
 .brush-shape:hover { border-color: var(--accent-strong); color: #fff; }
 .brush-shape.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.upd-log { margin: 8px 0; padding: 10px 12px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border2); font: 12px/1.5 Consolas, monospace; white-space: pre-wrap; user-select: text; max-height: 220px; overflow: auto; }

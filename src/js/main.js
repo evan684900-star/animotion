@@ -12,7 +12,7 @@ import { showShortcuts, showTutorial } from './help.js';
 import { toggleFullscreen, portableReady } from './platform.js';
 import { LOGO } from './icons.js';
 import { initLayout, toggleLayout, setUiScale, layout } from './layout.js';
-import { watchUpdates, showWhatsNew } from './update.js';
+import { watchUpdates, showWhatsNew, checkUpdateResult } from './update.js';
 import { initRecovery, checkRecovery } from './recovery.js';
 import { importSpriteScript } from './sprites.js';
 import { initDiscord } from './discord.js';
@@ -236,6 +236,7 @@ emit('ui');
 setTimeout(async () => {
   const p = await portableReady;
   if (p?.created) toast(`🔌 Mode portable activé : tes projets, exports, médias et copies de secours sont rangés dans ${p.root}`, 'ok', 8000);
+  await checkUpdateResult();
   const recovered = await checkRecovery();
   if (!store('tutoDone')) {
     if (!recovered) await showTutorial();

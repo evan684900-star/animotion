@@ -66,12 +66,37 @@ export async function checkForUpdate(silent = false) {
   const pr = progress('Mise à jour d’Animotion');
   pr.set(0.3, 'Téléchargement de la nouvelle version…');
   try {
-    await T.core.invoke('install_update', { url: asset.browser_download_url });
+    await T.core.invoke('install_update', { url: asset.browser_download_url, version: latest.replace(/^v/, '') });
     pr.set(1, 'Redémarrage…');
   } catch (e) {
     pr.close();
     toast('La mise à jour a échoué : ' + e, 'error', 6000);
   }
+}
+
+// ---------------------------------------------------------- compte rendu de la dernière installation
+/** Au démarrage : si une mise à jour avait été lancée mais que la version n'a pas changé, on explique pourquoi */
+export async function checkUpdateResult() {
+  if (!isTauri) return;
+  let r;
+  try {
+    r = await T.core.invoke('update_report');
+  } catch {
+    return;
+  }
+  if (!r?.target) return;
+  const cur = await currentVersion();
+  if (!newer(r.target, cur)) return; // tout s'est bien passé : les nouveautés s'affichent à part
+  const log = String(r.log || '').trim() || '(aucun détail enregistré)';
+  await modal({
+    title: 'La mise à jour n’a pas été installée 😕',
+    wide: true,
+    content: `<p>Animotion devait passer en version <b>${escapeHtml(r.target)}</b>, mais tu es toujours en <b>${escapeHtml(cur)}</b>.</p>
+      <p>Voici ce qui s’est passé (<b>envoie-moi ce texte</b>) :</p>
+      <pre class="upd-log">${escapeHtml(log)}</pre>
+      <p class="muted">En attendant, tu peux remplacer le fichier à la main : télécharge <b>Animotion.exe</b> sur github.com/${REPO}/releases/latest, ferme Animotion, puis copie-le à la place de l’ancien.</p>`,
+    buttons: [{ label: 'OK', value: true, primary: true }],
+  });
 }
 
 // ---------------------------------------------------------- point bleu « mise à jour disponible »

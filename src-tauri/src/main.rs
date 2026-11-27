@@ -54,7 +54,7 @@ fn read_file(path: String) -> Result<Response, String> {
 /// Mise à jour : télécharge le nouvel Animotion.exe, puis le remplace et relance l'appli.
 /// Fonctionne pour la version portable comme pour la version installée (on remplace l'exe en cours).
 #[tauri::command]
-async fn install_update(app: tauri::AppHandle, url: String) -> Result<(), String> {
+async fn install_update(app: tauri::AppHandle, url: String, version: Option<String>) -> Result<(), String> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
@@ -65,36 +65,60 @@ async fn install_update(app: tauri::AppHandle, url: String) -> Result<(), String
             return Err("adresse de mise à jour invalide".into());
         }
         let current = std::env::current_exe().map_err(|e| e.to_string())?;
-        let tmp = std::env::temp_dir().join("Animotion-maj.exe");
-        let _ = std::fs::remove_file(&tmp);
+        let tmpdir = std::env::temp_dir();
+        let log = tmpdir.join("Animotion-maj.log");
+        // le nouvel exe est téléchargé À CÔTÉ de l'ancien (même disque, même clé USB) : le remplacement est alors un simple renommage
+        let beside = current.with_extension("exe.new");
+        let new = if std::fs::File::create(&beside).is_ok() { beside } else { tmpdir.join("Animotion-maj.exe") };
         let q = |p: &std::path::Path| p.to_string_lossy().replace('\'', "''");
+        let _ = std::fs::write(&log, format!("Mise à jour vers {} depuis {}\r\n", version.clone().unwrap_or_default(), q(&current)));
+        let _ = std::fs::write(tmpdir.join("Animotion-maj.cible"), version.clone().unwrap_or_default());
 
         // 1. Téléchargement (on attend la fin pour pouvoir signaler une erreur)
-        let dl = format!(
-            "$ProgressPreference='SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol='Tls12'; \
-             Invoke-WebRequest -UseBasicParsing -Uri '{}' -OutFile '{}'",
-            url.replace('\'', "''"),
-            q(&tmp)
-        );
+        let dl = "$ProgressPreference='SilentlyContinue'; $ErrorActionPreference='Stop'; \
+            try { [Net.ServicePointManager]::SecurityProtocol='Tls12'; \
+              Invoke-WebRequest -UseBasicParsing -Uri '@URL@' -OutFile '@NEW@'; \
+              Add-Content -Encoding UTF8 -LiteralPath '@LOG@' ('téléchargement OK : ' + (Get-Item -LiteralPath '@NEW@').Length + ' octets') } \
+            catch { Add-Content -Encoding UTF8 -LiteralPath '@LOG@' ('ECHEC du téléchargement : ' + $_.Exception.Message); exit 1 }"
+            .replace("@URL@", &url.replace('\'', "''"))
+            .replace("@NEW@", &q(&new))
+            .replace("@LOG@", &q(&log));
         let status = Command::new("powershell")
             .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &dl])
             .creation_flags(NO_WINDOW)
             .status()
             .map_err(|e| e.to_string())?;
-        let size = std::fs::metadata(&tmp).map(|m| m.len()).unwrap_or(0);
+        let size = std::fs::metadata(&new).map(|m| m.len()).unwrap_or(0);
         if !status.success() || size < 100_000 {
-            return Err("le téléchargement a échoué".into());
+            let detail = std::fs::read(&log).map(|b| String::from_utf8_lossy(&b).trim().lines().last().unwrap_or("").to_string()).unwrap_or_default();
+            let _ = std::fs::remove_file(&new);
+            return Err(format!("le téléchargement a échoué ({detail})"));
         }
 
-        // 2. Script détaché : attend la fermeture, remplace l'exe, relance
-        let swap = format!(
-            "Wait-Process -Id {pid} -ErrorAction SilentlyContinue; \
-             for ($i = 0; $i -lt 40; $i++) {{ try {{ Remove-Item -Force '{dst}.old' -ErrorAction SilentlyContinue; Move-Item -Force '{dst}' '{dst}.old' -ErrorAction Stop; Copy-Item -Force '{src}' '{dst}' -ErrorAction Stop; break }} catch {{ Start-Sleep -Milliseconds 250 }} }}; \
-             Remove-Item -Force '{src}' -ErrorAction SilentlyContinue; Start-Process '{dst}'",
-            pid = std::process::id(),
-            src = q(&tmp),
-            dst = q(&current)
-        );
+        // 2. Script détaché : attend la fermeture, renomme l'ancien exe, pose le nouveau, relance ; tout est écrit dans le compte rendu
+        let swap = "$ErrorActionPreference='Stop'; \
+            function L($m) { Add-Content -Encoding UTF8 -LiteralPath '@LOG@' ((Get-Date -Format 'HH:mm:ss') + ' ' + $m) }; \
+            L 'attente de la fermeture d Animotion'; \
+            try { Wait-Process -Id @PID@ -Timeout 40 -ErrorAction SilentlyContinue } catch {}; \
+            Start-Sleep -Milliseconds 600; \
+            $ok = $false; \
+            for ($i = 0; $i -lt 100; $i++) { \
+              try { \
+                if (Test-Path -LiteralPath '@OLD@') { Remove-Item -Force -LiteralPath '@OLD@' }; \
+                Move-Item -Force -LiteralPath '@DST@' -Destination '@OLD@'; \
+                try { Move-Item -Force -LiteralPath '@NEW@' -Destination '@DST@' } \
+                catch { L ('pose du nouvel exe impossible : ' + $_.Exception.Message); Move-Item -Force -LiteralPath '@OLD@' -Destination '@DST@'; throw }; \
+                $ok = $true; break \
+              } catch { if ($i % 10 -eq 0) { L ('essai ' + $i + ' : ' + $_.Exception.Message) }; Start-Sleep -Milliseconds 500 } \
+            }; \
+            if (-not (Test-Path -LiteralPath '@DST@') -and (Test-Path -LiteralPath '@OLD@')) { Move-Item -Force -LiteralPath '@OLD@' -Destination '@DST@' }; \
+            if ($ok) { L 'remplacement OK, relance' } else { L 'ECHEC : impossible de remplacer Animotion.exe (fichier verrouillé ou dossier protégé en écriture ?)'; Remove-Item -Force -LiteralPath '@NEW@' -ErrorAction SilentlyContinue }; \
+            Start-Process -FilePath '@DST@'"
+            .replace("@PID@", &std::process::id().to_string())
+            .replace("@NEW@", &q(&new))
+            .replace("@DST@", &q(&current))
+            .replace("@OLD@", &format!("{}.old", q(&current)))
+            .replace("@LOG@", &q(&log));
         Command::new("powershell")
             .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", &swap])
             .creation_flags(NO_WINDOW)
@@ -107,9 +131,20 @@ async fn install_update(app: tauri::AppHandle, url: String) -> Result<(), String
     }
     #[cfg(not(windows))]
     {
-        let _ = (app, url);
+        let _ = (app, url, version);
         Err("mise à jour automatique disponible uniquement sous Windows".into())
     }
+}
+
+/// Compte rendu de la dernière mise à jour tentée : { target, log } (lu une seule fois, puis effacé)
+#[tauri::command]
+fn update_report() -> Option<serde_json::Value> {
+    let dir = std::env::temp_dir();
+    let target = std::fs::read_to_string(dir.join("Animotion-maj.cible")).ok()?;
+    let log = std::fs::read(dir.join("Animotion-maj.log")).map(|b| String::from_utf8_lossy(&b).trim_start_matches('\u{feff}').to_string()).unwrap_or_default();
+    let _ = std::fs::remove_file(dir.join("Animotion-maj.cible"));
+    let _ = std::fs::remove_file(dir.join("Animotion-maj.log"));
+    Some(serde_json::json!({ "target": target.trim(), "log": log.replace('\u{feff}', "") }))
 }
 
 // ------------------------------------------------------------------ Mode portable
@@ -345,6 +380,7 @@ fn main() {
     // ménage après une mise à jour : l'ancien exe renommé
     if let Ok(exe) = std::env::current_exe() {
         let _ = std::fs::remove_file(exe.with_extension("exe.old"));
+        let _ = std::fs::remove_file(exe.with_extension("exe.new"));
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -365,6 +401,7 @@ fn main() {
             write_file,
             read_file,
             install_update,
+            update_report,
             download_url,
             portable_info,
             recovery_write,
