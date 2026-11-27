@@ -104,14 +104,16 @@ async fn install_update(app: tauri::AppHandle, url: String, version: Option<Stri
             $ok = $false; \
             for ($i = 0; $i -lt 100; $i++) { \
               try { \
-                if (Test-Path -LiteralPath '@OLD@') { Remove-Item -Force -LiteralPath '@OLD@' }; \
-                Move-Item -Force -LiteralPath '@DST@' -Destination '@OLD@'; \
+                $old = '@OLD@'; \
+                if (Test-Path -LiteralPath $old) { Remove-Item -Force -LiteralPath $old -ErrorAction SilentlyContinue }; \
+                if (Test-Path -LiteralPath $old) { L 'ancien .old encore en cours d utilisation (pont Claude ?) : nom alternatif'; $old = '@OLD@' + (Get-Random -Maximum 99999) }; \
+                Move-Item -Force -LiteralPath '@DST@' -Destination $old; \
                 try { Move-Item -Force -LiteralPath '@NEW@' -Destination '@DST@' } \
-                catch { L ('pose du nouvel exe impossible : ' + $_.Exception.Message); Move-Item -Force -LiteralPath '@OLD@' -Destination '@DST@'; throw }; \
+                catch { L ('pose du nouvel exe impossible : ' + $_.Exception.Message); Move-Item -Force -LiteralPath $old -Destination '@DST@'; throw }; \
                 $ok = $true; break \
               } catch { if ($i % 10 -eq 0) { L ('essai ' + $i + ' : ' + $_.Exception.Message) }; Start-Sleep -Milliseconds 500 } \
             }; \
-            if (-not (Test-Path -LiteralPath '@DST@') -and (Test-Path -LiteralPath '@OLD@')) { Move-Item -Force -LiteralPath '@OLD@' -Destination '@DST@' }; \
+            if (-not (Test-Path -LiteralPath '@DST@') -and (Test-Path -LiteralPath $old)) { Move-Item -Force -LiteralPath $old -Destination '@DST@' }; \
             if ($ok) { L 'remplacement OK, relance' } else { L 'ECHEC : impossible de remplacer Animotion.exe (fichier verrouillé ou dossier protégé en écriture ?)'; Remove-Item -Force -LiteralPath '@NEW@' -ErrorAction SilentlyContinue }; \
             Start-Process -FilePath '@DST@'"
             .replace("@PID@", &std::process::id().to_string())
@@ -379,8 +381,18 @@ fn main() {
     }
     // ménage après une mise à jour : l'ancien exe renommé
     if let Ok(exe) = std::env::current_exe() {
-        let _ = std::fs::remove_file(exe.with_extension("exe.old"));
+        // restes des mises à jour précédentes (ceux encore utilisés, par exemple par le pont Claude, sont simplement gardés)
         let _ = std::fs::remove_file(exe.with_extension("exe.new"));
+        if let (Some(dir), Some(name)) = (exe.parent(), exe.file_name().and_then(|n| n.to_str())) {
+            if let Ok(rd) = std::fs::read_dir(dir) {
+                for f in rd.flatten() {
+                    let n = f.file_name().to_string_lossy().to_string();
+                    if n.starts_with(&format!("{name}.old")) {
+                        let _ = std::fs::remove_file(f.path());
+                    }
+                }
+            }
+        }
     }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
